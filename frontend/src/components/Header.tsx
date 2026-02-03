@@ -17,7 +17,7 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
             </div>
             <div>
               <h1 className="text-white font-bold text-xl">Imagen AI</h1>
-              <p className="text-gray-400 text-xs">Imágenes, videos y voces con IA</p>
+              <p className="text-gray-400 text-xs">Imágenes, videos, voces y recetas con IA</p>
             </div>
           </div>
 
@@ -52,6 +52,16 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
               }`}
             >
               🎙️ Voces
+            </button>
+            <button
+              onClick={() => onTabChange('recipe')}
+              className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+                activeTab === 'recipe'
+                  ? 'bg-orange-600 text-white shadow-lg shadow-orange-600/25'
+                  : 'text-gray-400 hover:text-white hover:bg-gray-700'
+              }`}
+            >
+              🍳 Recetas
             </button>
           </div>
         </div>

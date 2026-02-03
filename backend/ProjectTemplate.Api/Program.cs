@@ -75,6 +75,7 @@ builder.Services.AddSingleton<StripeService>();
 builder.Services.AddSingleton<ImageGenerationService>();
 builder.Services.AddSingleton<TtsService>();
 builder.Services.AddSingleton<VideoEditService>();
+builder.Services.AddSingleton<RecipeService>();
 
 var app = builder.Build();
 
