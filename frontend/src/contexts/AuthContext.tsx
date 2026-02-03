@@ -26,12 +26,27 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
+// ============================================================
+// AUTH DISABLED: Set to false to re-enable authentication
+// ============================================================
+const AUTH_DISABLED = true;
+
+const GUEST_USER: User = {
+  id: 0,
+  username: 'Guest',
+  email: 'guest@imagen.ai',
+  role: 'User',
+};
+
 export function AuthProvider({ children }: { children: React.ReactNode }) {
-  const [user, setUser] = useState<User | null>(null);
-  const [token, setToken] = useState<string | null>(() => localStorage.getItem('token'));
-  const [isLoading, setIsLoading] = useState(true);
+  const [user, setUser] = useState<User | null>(AUTH_DISABLED ? GUEST_USER : null);
+  const [token, setToken] = useState<string | null>(() =>
+    AUTH_DISABLED ? 'guest' : localStorage.getItem('token')
+  );
+  const [isLoading, setIsLoading] = useState(!AUTH_DISABLED);
 
   const logout = useCallback(() => {
+    if (AUTH_DISABLED) return; // No-op when auth is disabled
     localStorage.removeItem('token');
     localStorage.removeItem('user');
     setToken(null);
@@ -39,6 +54,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   useEffect(() => {
+    if (AUTH_DISABLED) return; // Skip auth check when disabled
     if (token) {
       api.get<User>('/auth/me')
         .then(setUser)
@@ -50,6 +66,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [token, logout]);
 
   const login = async (username: string, password: string) => {
+    if (AUTH_DISABLED) return; // No-op when auth is disabled
     const response = await api.post<LoginResponse>('/auth/login', { username, password });
     localStorage.setItem('token', response.token);
     setToken(response.token);
@@ -60,7 +77,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       value={{
         user,
         token,
-        isAuthenticated: !!token && !!user,
+        isAuthenticated: AUTH_DISABLED ? true : (!!token && !!user),
         isLoading,
         login,
         logout,

@@ -51,12 +51,14 @@ export default function Layout() {
                 {user?.role} · {isActive ? plan : 'Free'}
               </p>
             </div>
-            <button
-              onClick={logout}
-              className="text-sm text-gray-400 hover:text-white transition-colors"
-            >
-              Logout
-            </button>
+            {user?.id !== 0 && (
+              <button
+                onClick={logout}
+                className="text-sm text-gray-400 hover:text-white transition-colors"
+              >
+                Logout
+              </button>
+            )}
           </div>
         </div>
       </aside>
