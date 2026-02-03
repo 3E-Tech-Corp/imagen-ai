@@ -122,15 +122,25 @@ foreach ($file in $preserveFiles) {
 }
 
 # Copy with retry in case of lingering file locks
-$copyRetries = 3
+$copyRetries = 5
 for ($i = 1; $i -le $copyRetries; $i++) {
     try {
         Copy-Item -Path "$BackendSource\*" -Destination $backendPath -Recurse -Force
+        Write-Host "   Backend files copied (attempt $i)" -ForegroundColor Green
         break
     } catch {
         if ($i -eq $copyRetries) { throw }
-        Write-Host "   Copy attempt $i failed, retrying in 5s..." -ForegroundColor Yellow
-        Start-Sleep -Seconds 5
+        Write-Host "   Copy attempt $i failed, retrying in 10s..." -ForegroundColor Yellow
+        # Try to force-kill any w3wp processes for this pool
+        try {
+            $w3wpProcs = Get-CimInstance Win32_Process -Filter "Name = 'w3wp.exe'" -ErrorAction SilentlyContinue |
+                Where-Object { $_.CommandLine -match $appPoolName }
+            foreach ($proc in $w3wpProcs) {
+                Write-Host "   Killing w3wp.exe PID $($proc.ProcessId)..." -ForegroundColor Yellow
+                Stop-Process -Id $proc.ProcessId -Force -ErrorAction SilentlyContinue
+            }
+        } catch { }
+        Start-Sleep -Seconds 10
     }
 }
 
