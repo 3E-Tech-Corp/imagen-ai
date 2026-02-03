@@ -4,7 +4,13 @@ public class GenerationRequest
 {
     public string Prompt { get; set; } = string.Empty;
     public string Type { get; set; } = "image"; // "image" or "video"
-    public string Style { get; set; } = "photographic";
+    public string Style { get; set; } = "photorealistic";
+    public string Environment { get; set; } = "any";
+    public string TimePeriod { get; set; } = "any";
+    public string Lighting { get; set; } = "any";
+    public string Emotion { get; set; } = "any";
+    public string Quality { get; set; } = "ultra";
+    public string UseCase { get; set; } = "any";
     public string? NegativePrompt { get; set; }
 }
 

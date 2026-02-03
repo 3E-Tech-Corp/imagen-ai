@@ -41,13 +41,11 @@ public class GenerationController : ControllerBase
             GeneratedMedia media;
             if (request.Type == "video")
             {
-                media = await _generationService.GenerateVideoAsync(
-                    request.Prompt, request.Style, request.NegativePrompt);
+                media = await _generationService.GenerateVideoAsync(request);
             }
             else
             {
-                media = await _generationService.GenerateImageAsync(
-                    request.Prompt, request.Style, request.NegativePrompt);
+                media = await _generationService.GenerateImageAsync(request);
             }
 
             var response = new GenerationResponse

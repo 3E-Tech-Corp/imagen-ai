@@ -2,6 +2,7 @@ using System.Net.Http.Headers;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using ProjectTemplate.Api.Models;
 
 namespace ProjectTemplate.Api.Services;
 
@@ -15,42 +16,42 @@ public class ImageGenerationService
     {
         _config = config;
         _logger = logger;
-        _httpClient = new HttpClient();
+        _httpClient = new HttpClient { Timeout = TimeSpan.FromMinutes(5) };
     }
 
-    /// <summary>
-    /// Generate an image using FAL.ai Flux API
-    /// </summary>
-    public async Task<GeneratedMedia> GenerateImageAsync(string prompt, string style, string? negativePrompt)
+    public async Task<GeneratedMedia> GenerateImageAsync(GenerationRequest request)
     {
         var falKey = _config["FalAi:ApiKey"];
         if (string.IsNullOrEmpty(falKey))
-            throw new InvalidOperationException("FAL.ai API key not configured");
+            throw new InvalidOperationException("FAL.ai API key not configured. Set __FAL_API_KEY__ in appsettings.json");
 
-        var stylePrompt = style switch
+        var fullPrompt = PromptBuilder.BuildImagePrompt(
+            request.Prompt, request.Style, request.Environment,
+            request.TimePeriod, request.Lighting, request.Emotion, request.Quality);
+
+        var negativePrompt = PromptBuilder.BuildNegativePrompt(request.NegativePrompt);
+
+        // Use best resolution based on quality setting
+        var imageSize = request.Quality switch
         {
-            "photographic" => $"A highly detailed photographic image of {prompt}, professional photography, 8K resolution, sharp focus",
-            "realistic" => $"Hyper-realistic depiction of {prompt}, extremely detailed, lifelike, cinematic lighting",
-            "artistic" => $"An artistic painting of {prompt}, masterful brushwork, vibrant colors, gallery quality",
-            "anime" => $"Anime style illustration of {prompt}, detailed anime art, vibrant colors, studio quality",
-            "3d-render" => $"3D rendered scene of {prompt}, octane render, volumetric lighting, highly detailed",
-            _ => prompt
+            "max" => "square_hd",
+            "ultra" => "square_hd",
+            "high" => "square",
+            _ => "square"
         };
-
-        var fullNegative = string.IsNullOrEmpty(negativePrompt)
-            ? "blurry, low quality, distorted, deformed, watermark, text, bad anatomy"
-            : $"{negativePrompt}, blurry, low quality, distorted, deformed, watermark, text";
 
         var requestBody = new
         {
-            prompt = stylePrompt,
-            negative_prompt = fullNegative,
-            image_size = "square_hd",
+            prompt = fullPrompt,
+            negative_prompt = negativePrompt,
+            image_size = imageSize,
             num_inference_steps = 28,
             guidance_scale = 3.5,
             num_images = 1,
             enable_safety_checker = true
         };
+
+        _logger.LogInformation("Image prompt: {Prompt}", fullPrompt);
 
         _httpClient.DefaultRequestHeaders.Clear();
         _httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Key", falKey);
@@ -61,7 +62,6 @@ public class ImageGenerationService
         );
 
         var responseBody = await response.Content.ReadAsStringAsync();
-        _logger.LogInformation("FAL.ai response: {Status} {Body}", response.StatusCode, responseBody);
 
         if (!response.IsSuccessStatusCode)
             throw new Exception($"FAL.ai API error: {response.StatusCode} - {responseBody}");
@@ -73,43 +73,34 @@ public class ImageGenerationService
         return new GeneratedMedia { Url = imageUrl, Type = "image" };
     }
 
-    /// <summary>
-    /// Generate a video using FAL.ai Kling API
-    /// </summary>
-    public async Task<GeneratedMedia> GenerateVideoAsync(string prompt, string style, string? negativePrompt)
+    public async Task<GeneratedMedia> GenerateVideoAsync(GenerationRequest request)
     {
         var falKey = _config["FalAi:ApiKey"];
         if (string.IsNullOrEmpty(falKey))
-            throw new InvalidOperationException("FAL.ai API key not configured");
+            throw new InvalidOperationException("FAL.ai API key not configured. Set __FAL_API_KEY__ in appsettings.json");
 
-        var stylePrompt = style switch
-        {
-            "photographic" => $"Photorealistic video of {prompt}, cinematic quality, smooth motion, 4K",
-            "realistic" => $"Hyper-realistic video of {prompt}, natural movement, lifelike detail",
-            "artistic" => $"Artistic animation of {prompt}, beautiful visual style, smooth motion",
-            "anime" => $"Anime-style animation of {prompt}, fluid motion, vibrant colors",
-            "3d-render" => $"3D animated video of {prompt}, cinematic rendering, smooth camera movement",
-            _ => prompt
-        };
+        var fullPrompt = PromptBuilder.BuildVideoPrompt(
+            request.Prompt, request.Style, request.Environment,
+            request.TimePeriod, request.Lighting, request.Emotion, request.Quality);
+
+        _logger.LogInformation("Video prompt: {Prompt}", fullPrompt);
 
         var requestBody = new
         {
-            prompt = stylePrompt,
+            prompt = fullPrompt,
             duration = "5",
-            aspect_ratio = "1:1"
+            aspect_ratio = "16:9"
         };
 
         _httpClient.DefaultRequestHeaders.Clear();
         _httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Key", falKey);
 
-        // Submit the video generation request
         var response = await _httpClient.PostAsync(
             "https://fal.run/fal-ai/kling-video/v1/standard/text-to-video",
             new StringContent(JsonSerializer.Serialize(requestBody), Encoding.UTF8, "application/json")
         );
 
         var responseBody = await response.Content.ReadAsStringAsync();
-        _logger.LogInformation("FAL.ai video response: {Status} {Body}", response.StatusCode, responseBody);
 
         if (!response.IsSuccessStatusCode)
             throw new Exception($"FAL.ai API error: {response.StatusCode} - {responseBody}");
@@ -128,7 +119,6 @@ public class GeneratedMedia
     public string Type { get; set; } = string.Empty;
 }
 
-// FAL.ai response models
 public class FalImageResponse
 {
     [JsonPropertyName("images")]
@@ -139,12 +129,6 @@ public class FalImage
 {
     [JsonPropertyName("url")]
     public string? Url { get; set; }
-
-    [JsonPropertyName("width")]
-    public int Width { get; set; }
-
-    [JsonPropertyName("height")]
-    public int Height { get; set; }
 }
 
 public class FalVideoResponse
