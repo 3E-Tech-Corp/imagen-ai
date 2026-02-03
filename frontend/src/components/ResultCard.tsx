@@ -6,22 +6,25 @@ interface ResultCardProps {
 
 export default function ResultCard({ result }: ResultCardProps) {
   const handleDownload = () => {
+    const ext = result.type === 'image' ? 'png' : result.type === 'video' ? 'mp4' : 'mp3';
     const link = document.createElement('a');
     link.href = result.url;
-    link.download = `imagen-ai-${result.id}.${result.type === 'image' ? 'png' : 'mp4'}`;
+    link.download = `imagen-ai-${result.id}.${ext}`;
     link.click();
   };
 
   if (result.status === 'generating') {
     return (
       <div className="bg-gray-800 rounded-2xl border border-gray-700 overflow-hidden animate-pulse">
-        <div className="aspect-square bg-gray-700 flex items-center justify-center">
+        <div className={`${result.type === 'voice' ? 'aspect-[2/1]' : 'aspect-square'} bg-gray-700 flex items-center justify-center`}>
           <div className="text-center p-6">
             <svg className="animate-spin h-10 w-10 text-violet-400 mx-auto mb-3" viewBox="0 0 24 24">
               <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
               <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
             </svg>
-            <p className="text-gray-400 text-sm">Generando...</p>
+            <p className="text-gray-400 text-sm">
+              {result.type === 'voice' ? 'Generando voz...' : result.type === 'video' ? 'Generando video...' : 'Generando imagen...'}
+            </p>
           </div>
         </div>
         <div className="p-4">
@@ -34,7 +37,7 @@ export default function ResultCard({ result }: ResultCardProps) {
   if (result.status === 'failed') {
     return (
       <div className="bg-gray-800 rounded-2xl border border-red-900/50 overflow-hidden">
-        <div className="aspect-square bg-red-900/20 flex items-center justify-center">
+        <div className={`${result.type === 'voice' ? 'aspect-[2/1]' : 'aspect-square'} bg-red-900/20 flex items-center justify-center`}>
           <div className="text-center p-6">
             <p className="text-4xl mb-3">❌</p>
             <p className="text-red-400 text-sm">{result.error || 'Error al generar'}</p>
@@ -47,6 +50,41 @@ export default function ResultCard({ result }: ResultCardProps) {
     );
   }
 
+  // Voice result
+  if (result.type === 'voice') {
+    return (
+      <div className="bg-gray-800 rounded-2xl border border-gray-700 overflow-hidden group hover:border-emerald-500/50 transition-all">
+        <div className="p-6 bg-gradient-to-br from-emerald-900/30 to-teal-900/30">
+          <div className="flex items-center gap-3 mb-4">
+            <div className="w-12 h-12 bg-emerald-600/30 rounded-full flex items-center justify-center">
+              <span className="text-2xl">🎙️</span>
+            </div>
+            <div>
+              <span className="text-emerald-400 text-sm font-medium">Audio generado</span>
+              <p className="text-gray-400 text-xs">
+                {new Date(result.createdAt).toLocaleString('es')}
+              </p>
+            </div>
+          </div>
+          <audio controls className="w-full mb-3" style={{ height: '40px' }}>
+            <source src={result.url} type="audio/mpeg" />
+            Tu navegador no soporta audio.
+          </audio>
+          <button
+            onClick={handleDownload}
+            className="w-full py-2 bg-emerald-600/20 border border-emerald-600/40 text-emerald-400 rounded-xl text-sm font-medium hover:bg-emerald-600/30 transition-colors"
+          >
+            ⬇️ Descargar audio
+          </button>
+        </div>
+        <div className="p-4 border-t border-gray-700">
+          <p className="text-white text-sm line-clamp-3">{result.prompt}</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Image / Video result
   return (
     <div className="bg-gray-800 rounded-2xl border border-gray-700 overflow-hidden group hover:border-violet-500/50 transition-all">
       {/* Media */}

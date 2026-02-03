@@ -9,12 +9,20 @@ namespace ProjectTemplate.Api.Controllers;
 public class GenerationController : ControllerBase
 {
     private readonly ImageGenerationService _generationService;
+    private readonly TtsService _ttsService;
     private readonly ILogger<GenerationController> _logger;
+    private readonly IWebHostEnvironment _env;
 
-    public GenerationController(ImageGenerationService generationService, ILogger<GenerationController> logger)
+    public GenerationController(
+        ImageGenerationService generationService,
+        TtsService ttsService,
+        ILogger<GenerationController> logger,
+        IWebHostEnvironment env)
     {
         _generationService = generationService;
+        _ttsService = ttsService;
         _logger = logger;
+        _env = env;
     }
 
     [HttpPost("create")]
@@ -56,6 +64,49 @@ public class GenerationController : ControllerBase
         {
             _logger.LogError(ex, "Generation failed for prompt: {Prompt}", request.Prompt);
             return StatusCode(500, new { message = $"Error al generar: {ex.Message}" });
+        }
+    }
+
+    [HttpPost("voice")]
+    public async Task<IActionResult> GenerateVoice([FromBody] VoiceRequest request)
+    {
+        if (string.IsNullOrWhiteSpace(request.Text))
+            return BadRequest(new { message = "El texto es requerido" });
+
+        try
+        {
+            _logger.LogInformation("Generating voice: lang={Lang}, gender={Gender}, text={Text}",
+                request.Language, request.Gender, request.Text[..Math.Min(50, request.Text.Length)]);
+
+            var audioBytes = await _ttsService.GenerateSpeechAsync(
+                request.Text, request.Language, request.Gender);
+
+            // Save audio file and return URL
+            var fileName = $"{Guid.NewGuid()}.mp3";
+            var audioDir = Path.Combine(_env.ContentRootPath, "wwwroot", "audio");
+            Directory.CreateDirectory(audioDir);
+            var filePath = Path.Combine(audioDir, fileName);
+            await System.IO.File.WriteAllBytesAsync(filePath, audioBytes);
+
+            var audioUrl = $"/audio/{fileName}";
+
+            var response = new GenerationResponse
+            {
+                Id = Guid.NewGuid().ToString(),
+                Prompt = request.Text,
+                Type = "voice",
+                Style = "realistic",
+                Url = audioUrl,
+                CreatedAt = DateTime.UtcNow.ToString("o"),
+                Status = "completed"
+            };
+
+            return Ok(response);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Voice generation failed");
+            return StatusCode(500, new { message = $"Error al generar voz: {ex.Message}" });
         }
     }
 }

@@ -73,6 +73,7 @@ builder.Services.AddCors(options =>
 builder.Services.AddSingleton<AuthService>();
 builder.Services.AddSingleton<StripeService>();
 builder.Services.AddSingleton<ImageGenerationService>();
+builder.Services.AddSingleton<TtsService>();
 
 var app = builder.Build();
 
@@ -133,6 +134,7 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseCors();
+app.UseStaticFiles(); // Serve audio files from wwwroot/audio
 app.UseAuthentication();
 app.UseAuthorization();
 app.MapControllers();

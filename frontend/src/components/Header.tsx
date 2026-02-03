@@ -17,7 +17,7 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
             </div>
             <div>
               <h1 className="text-white font-bold text-xl">Imagen AI</h1>
-              <p className="text-gray-400 text-xs">Crea imágenes y videos con IA</p>
+              <p className="text-gray-400 text-xs">Imágenes, videos y voces con IA</p>
             </div>
           </div>
 
@@ -25,7 +25,7 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
           <div className="flex bg-gray-800 rounded-xl p-1 gap-1">
             <button
               onClick={() => onTabChange('image')}
-              className={`px-5 py-2 rounded-lg text-sm font-medium transition-all ${
+              className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
                 activeTab === 'image'
                   ? 'bg-violet-600 text-white shadow-lg shadow-violet-600/25'
                   : 'text-gray-400 hover:text-white hover:bg-gray-700'
@@ -35,13 +35,23 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
             </button>
             <button
               onClick={() => onTabChange('video')}
-              className={`px-5 py-2 rounded-lg text-sm font-medium transition-all ${
+              className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
                 activeTab === 'video'
                   ? 'bg-fuchsia-600 text-white shadow-lg shadow-fuchsia-600/25'
                   : 'text-gray-400 hover:text-white hover:bg-gray-700'
               }`}
             >
               🎬 Videos
+            </button>
+            <button
+              onClick={() => onTabChange('voice')}
+              className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+                activeTab === 'voice'
+                  ? 'bg-emerald-600 text-white shadow-lg shadow-emerald-600/25'
+                  : 'text-gray-400 hover:text-white hover:bg-gray-700'
+              }`}
+            >
+              🎙️ Voces
             </button>
           </div>
         </div>

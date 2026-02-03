@@ -1,8 +1,9 @@
 import { useState, useCallback } from 'react';
 import Header from './components/Header';
 import PromptInput from './components/PromptInput';
+import VoiceGenerator from './components/VoiceGenerator';
 import Gallery from './components/Gallery';
-import { GenerationType, GenerationResult, ImageStyle } from './types';
+import { GenerationType, GenerationResult, ImageStyle, VoiceGender } from './types';
 import api from './services/api';
 
 export default function App() {
@@ -49,18 +50,63 @@ export default function App() {
     }
   }, [activeTab]);
 
+  const handleVoiceGenerate = useCallback(async (text: string, language: string, gender: VoiceGender) => {
+    const tempId = crypto.randomUUID();
+    const placeholderResult: GenerationResult = {
+      id: tempId,
+      prompt: text,
+      type: 'voice',
+      style: 'realistic',
+      url: '',
+      createdAt: new Date().toISOString(),
+      status: 'generating',
+    };
+
+    setResults((prev) => [placeholderResult, ...prev]);
+    setIsGenerating(true);
+
+    try {
+      const result = await api.post<GenerationResult>('/generation/voice', {
+        text,
+        language,
+        gender,
+      });
+
+      setResults((prev) =>
+        prev.map((r) => (r.id === tempId ? { ...result, type: 'voice' as const, status: 'completed' as const } : r))
+      );
+    } catch (err) {
+      setResults((prev) =>
+        prev.map((r) =>
+          r.id === tempId
+            ? { ...r, status: 'failed' as const, error: err instanceof Error ? err.message : 'Error desconocido' }
+            : r
+        )
+      );
+    } finally {
+      setIsGenerating(false);
+    }
+  }, []);
+
   return (
     <div className="min-h-screen bg-gray-950">
       <Header activeTab={activeTab} onTabChange={setActiveTab} />
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
-        {/* Prompt section */}
+        {/* Input section */}
         <section className="max-w-3xl mx-auto">
-          <PromptInput
-            type={activeTab}
-            onGenerate={handleGenerate}
-            isGenerating={isGenerating}
-          />
+          {activeTab === 'voice' ? (
+            <VoiceGenerator
+              onGenerate={handleVoiceGenerate}
+              isGenerating={isGenerating}
+            />
+          ) : (
+            <PromptInput
+              type={activeTab}
+              onGenerate={handleGenerate}
+              isGenerating={isGenerating}
+            />
+          )}
         </section>
 
         {/* Results gallery */}
@@ -73,7 +119,7 @@ export default function App() {
       <footer className="border-t border-gray-800 mt-12">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
           <p className="text-center text-gray-500 text-sm">
-            Imagen AI — Generación de imágenes y videos con inteligencia artificial
+            Imagen AI — Generación de imágenes, videos y voces con inteligencia artificial
           </p>
         </div>
       </footer>
