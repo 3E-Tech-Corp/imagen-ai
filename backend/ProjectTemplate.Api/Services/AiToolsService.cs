@@ -2,6 +2,7 @@ using System.Net.Http.Headers;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using System.Text.RegularExpressions;
 using ProjectTemplate.Api.Models;
 
 namespace ProjectTemplate.Api.Services;
@@ -34,8 +35,76 @@ public class AiToolsService
     }
 
     /// <summary>
-    /// If the image is a base64 data URL, upload it to FAL storage first.
-    /// FAL.ai APIs work better with actual URLs than with large base64 strings.
+    /// Upload base64 images to FAL storage so all FAL APIs can use them.
+    /// Uses FAL's storage/upload/initiate endpoint.
+    /// </summary>
+    private async Task<string> UploadToFalStorage(string base64DataUrl, string falKey)
+    {
+        // Extract mime type and base64 data
+        var match = Regex.Match(base64DataUrl, @"data:([^;]+);base64,(.+)");
+        if (!match.Success)
+            throw new ArgumentException("Formato de imagen base64 inválido.");
+
+        var mimeType = match.Groups[1].Value;
+        var base64Data = match.Groups[2].Value;
+        var imageBytes = Convert.FromBase64String(base64Data);
+
+        var ext = mimeType switch
+        {
+            "image/jpeg" => "jpg",
+            "image/jpg" => "jpg",
+            "image/png" => "png",
+            "image/webp" => "webp",
+            "image/gif" => "gif",
+            _ => "png"
+        };
+
+        var fileName = $"upload-{Guid.NewGuid():N}.{ext}";
+
+        _logger.LogInformation("Uploading {Size} bytes to FAL storage as {FileName}", imageBytes.Length, fileName);
+
+        // Step 1: Initiate upload to get presigned URL
+        SetAuthHeader(falKey);
+        var initiateBody = new { file_name = fileName, content_type = mimeType };
+        var initiateResponse = await _httpClient.PostAsync(
+            "https://rest.alpha.fal.ai/storage/upload/initiate",
+            new StringContent(JsonSerializer.Serialize(initiateBody), Encoding.UTF8, "application/json")
+        );
+
+        var initiateJson = await initiateResponse.Content.ReadAsStringAsync();
+        _logger.LogInformation("FAL storage initiate response: {Status} {Body}",
+            initiateResponse.StatusCode, initiateJson[..Math.Min(300, initiateJson.Length)]);
+
+        if (!initiateResponse.IsSuccessStatusCode)
+            throw new Exception($"Error al subir imagen a storage: {initiateResponse.StatusCode}");
+
+        var initiateResult = JsonSerializer.Deserialize<FalStorageInitiate>(initiateJson);
+
+        if (string.IsNullOrEmpty(initiateResult?.FileUrl))
+            throw new Exception("No se pudo obtener URL de storage.");
+
+        // Step 2: Upload the actual file bytes to the upload URL
+        var uploadUrl = initiateResult.UploadUrl ?? initiateResult.FileUrl;
+
+        using var uploadContent = new ByteArrayContent(imageBytes);
+        uploadContent.Headers.ContentType = new MediaTypeHeaderValue(mimeType);
+
+        var uploadResponse = await _httpClient.PutAsync(uploadUrl, uploadContent);
+
+        if (!uploadResponse.IsSuccessStatusCode)
+        {
+            _logger.LogWarning("PUT upload failed ({Status}), trying POST...", uploadResponse.StatusCode);
+            uploadResponse = await _httpClient.PostAsync(uploadUrl, uploadContent);
+        }
+
+        _logger.LogInformation("FAL storage upload result: {Status}", uploadResponse.StatusCode);
+
+        // The file_url from initiate is the permanent URL
+        return initiateResult.FileUrl;
+    }
+
+    /// <summary>
+    /// Ensure we have a proper URL (not base64). Upload to FAL storage if needed.
     /// </summary>
     private async Task<string> EnsureImageUrl(string imageUrlOrBase64, string falKey)
     {
@@ -49,59 +118,102 @@ public class AiToolsService
         // If it's a data URL, upload to FAL storage
         if (imageUrlOrBase64.StartsWith("data:"))
         {
-            _logger.LogInformation("Uploading base64 image to FAL storage...");
-
-            // Extract the base64 content and mime type
-            var parts = imageUrlOrBase64.Split(',');
-            if (parts.Length != 2)
-                throw new ArgumentException("Formato de imagen inválido.");
-
-            var mimeMatch = System.Text.RegularExpressions.Regex.Match(parts[0], @"data:([^;]+)");
-            var mimeType = mimeMatch.Success ? mimeMatch.Groups[1].Value : "image/png";
-            var base64Data = parts[1];
-            var imageBytes = Convert.FromBase64String(base64Data);
-
-            var ext = mimeType switch
-            {
-                "image/jpeg" => "jpg",
-                "image/png" => "png",
-                "image/webp" => "webp",
-                "image/gif" => "gif",
-                _ => "png"
-            };
-
-            SetAuthHeader(falKey);
-
-            var content = new ByteArrayContent(imageBytes);
-            content.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue(mimeType);
-
-            var uploadResponse = await _httpClient.PostAsync(
-                $"https://fal.run/fal-ai/flux/dev?fal_file=true",
-                content
-            );
-
-            // Try alternative upload method - just use the data URL directly
-            // Some FAL endpoints accept data URLs
-            if (!uploadResponse.IsSuccessStatusCode)
-            {
-                _logger.LogWarning("FAL storage upload failed, using data URL directly");
-                return imageUrlOrBase64;
-            }
-
-            var uploadBody = await uploadResponse.Content.ReadAsStringAsync();
-            var uploadResult = JsonSerializer.Deserialize<FalUploadResult>(uploadBody);
-
-            if (!string.IsNullOrEmpty(uploadResult?.Url))
-            {
-                _logger.LogInformation("Image uploaded to FAL: {Url}", uploadResult.Url);
-                return uploadResult.Url;
-            }
-
-            // Fallback to data URL
-            return imageUrlOrBase64;
+            return await UploadToFalStorage(imageUrlOrBase64, falKey);
         }
 
-        return imageUrlOrBase64;
+        throw new ArgumentException("Formato de imagen no soportado. Usa una URL o sube un archivo.");
+    }
+
+    /// <summary>
+    /// Call a FAL API synchronously (with built-in retry for slow models).
+    /// For slow models like aura-sr, uses queue API with polling.
+    /// </summary>
+    private async Task<string> CallFalApiWithQueue(string model, object requestBody, string falKey, int maxWaitSeconds = 120)
+    {
+        SetAuthHeader(falKey);
+
+        // Submit to queue
+        var submitResponse = await _httpClient.PostAsync(
+            $"https://queue.fal.run/{model}",
+            new StringContent(JsonSerializer.Serialize(requestBody), Encoding.UTF8, "application/json")
+        );
+
+        var submitBody = await submitResponse.Content.ReadAsStringAsync();
+
+        if (!submitResponse.IsSuccessStatusCode)
+        {
+            _logger.LogError("FAL queue submit error for {Model}: {Status} {Body}",
+                model, submitResponse.StatusCode, submitBody);
+            throw new Exception($"Error al procesar la imagen: {submitBody}");
+        }
+
+        var queueResult = JsonSerializer.Deserialize<FalQueueResponse>(submitBody);
+        if (string.IsNullOrEmpty(queueResult?.StatusUrl))
+            throw new Exception("No se pudo iniciar el procesamiento.");
+
+        _logger.LogInformation("FAL queue submitted for {Model}: requestId={RequestId}",
+            model, queueResult.RequestId);
+
+        // Poll for completion
+        var startTime = DateTime.UtcNow;
+        while ((DateTime.UtcNow - startTime).TotalSeconds < maxWaitSeconds)
+        {
+            await Task.Delay(3000);
+
+            SetAuthHeader(falKey);
+            var statusResponse = await _httpClient.GetAsync(queueResult.StatusUrl);
+            var statusBody = await statusResponse.Content.ReadAsStringAsync();
+            var status = JsonSerializer.Deserialize<FalQueueStatus>(statusBody);
+
+            _logger.LogInformation("FAL queue status for {Model}: {Status} (elapsed: {Elapsed}s)",
+                model, status?.Status, (DateTime.UtcNow - startTime).TotalSeconds);
+
+            if (status?.Status == "COMPLETED")
+            {
+                // Get the result
+                SetAuthHeader(falKey);
+                var responseUrl = queueResult.ResponseUrl ?? queueResult.StatusUrl.Replace("/status", "");
+                var resultResponse = await _httpClient.GetAsync(responseUrl);
+                var resultBody = await resultResponse.Content.ReadAsStringAsync();
+
+                if (!resultResponse.IsSuccessStatusCode)
+                    throw new Exception("Error al obtener el resultado.");
+
+                return resultBody;
+            }
+
+            if (status?.Status == "FAILED")
+            {
+                _logger.LogError("FAL processing failed for {Model}: {Body}", model, statusBody);
+                throw new Exception("El procesamiento de la imagen falló. Intenta con otra imagen.");
+            }
+        }
+
+        throw new Exception("El procesamiento tardó demasiado. Intenta con una imagen más pequeña.");
+    }
+
+    /// <summary>
+    /// Call a FAL API synchronously (direct, for fast models).
+    /// </summary>
+    private async Task<string> CallFalApiDirect(string model, object requestBody, string falKey)
+    {
+        SetAuthHeader(falKey);
+
+        var response = await _httpClient.PostAsync(
+            $"https://fal.run/{model}",
+            new StringContent(JsonSerializer.Serialize(requestBody), Encoding.UTF8, "application/json")
+        );
+
+        var responseBody = await response.Content.ReadAsStringAsync();
+
+        if (!response.IsSuccessStatusCode)
+        {
+            _logger.LogError("FAL API error for {Model}: {Status} {Body}",
+                model, response.StatusCode, responseBody);
+            throw new Exception($"Error al procesar la imagen. Intenta de nuevo.");
+        }
+
+        return responseBody;
     }
 
     /// <summary>
@@ -113,6 +225,7 @@ public class AiToolsService
         _logger.LogInformation("Removing background from image");
 
         var imageUrl = await EnsureImageUrl(request.ImageUrl, falKey);
+        _logger.LogInformation("Image URL for remove-bg: {Url}", imageUrl[..Math.Min(100, imageUrl.Length)]);
 
         var requestBody = new
         {
@@ -122,22 +235,7 @@ public class AiToolsService
             output_format = "png"
         };
 
-        SetAuthHeader(falKey);
-
-        var response = await _httpClient.PostAsync(
-            "https://fal.run/fal-ai/birefnet",
-            new StringContent(JsonSerializer.Serialize(requestBody), Encoding.UTF8, "application/json")
-        );
-
-        var responseBody = await response.Content.ReadAsStringAsync();
-
-        if (!response.IsSuccessStatusCode)
-        {
-            _logger.LogError("FAL remove-bg error: {Status} {Body}", response.StatusCode, responseBody);
-            throw new Exception("Error al quitar el fondo. Intenta de nuevo.");
-        }
-
-        _logger.LogInformation("Remove background response: {Body}", responseBody[..Math.Min(500, responseBody.Length)]);
+        var responseBody = await CallFalApiDirect("fal-ai/birefnet", requestBody, falKey);
 
         var result = JsonSerializer.Deserialize<FalBirefnetResponse>(responseBody);
         var resultImageUrl = result?.Image?.Url
@@ -147,7 +245,7 @@ public class AiToolsService
     }
 
     /// <summary>
-    /// Upscale an image using fal-ai/aura-sr
+    /// Upscale an image using fal-ai/aura-sr (uses queue API since it can be slow)
     /// </summary>
     public async Task<AiToolResult> UpscaleAsync(UpscaleRequest request)
     {
@@ -155,29 +253,15 @@ public class AiToolsService
         _logger.LogInformation("Upscaling image with scale {Scale}x", request.Scale);
 
         var imageUrl = await EnsureImageUrl(request.ImageUrl, falKey);
+        _logger.LogInformation("Image URL for upscale: {Url}", imageUrl[..Math.Min(100, imageUrl.Length)]);
 
-        // aura-sr always upscales 4x, it only needs image_url
         var requestBody = new
         {
             image_url = imageUrl
         };
 
-        SetAuthHeader(falKey);
-
-        var response = await _httpClient.PostAsync(
-            "https://fal.run/fal-ai/aura-sr",
-            new StringContent(JsonSerializer.Serialize(requestBody), Encoding.UTF8, "application/json")
-        );
-
-        var responseBody = await response.Content.ReadAsStringAsync();
-
-        if (!response.IsSuccessStatusCode)
-        {
-            _logger.LogError("FAL upscale error: {Status} {Body}", response.StatusCode, responseBody);
-            throw new Exception("Error al mejorar la imagen. Intenta de nuevo.");
-        }
-
-        _logger.LogInformation("Upscale response: {Body}", responseBody[..Math.Min(500, responseBody.Length)]);
+        // Use queue API for aura-sr since it can be slow
+        var responseBody = await CallFalApiWithQueue("fal-ai/aura-sr", requestBody, falKey);
 
         var result = JsonSerializer.Deserialize<FalUpscaleResponse>(responseBody);
         var resultImageUrl = result?.Image?.Url
@@ -192,7 +276,8 @@ public class AiToolsService
     public async Task<AiToolResult> ReimagineAsync(ReimagineRequest request)
     {
         var falKey = GetFalKey();
-        _logger.LogInformation("Reimagining image with prompt: {Prompt}, strength: {Strength}", request.Prompt, request.Strength);
+        _logger.LogInformation("Reimagining image with prompt: {Prompt}, strength: {Strength}",
+            request.Prompt, request.Strength);
 
         var imageUrl = await EnsureImageUrl(request.ImageUrl, falKey);
 
@@ -207,22 +292,7 @@ public class AiToolsService
             enable_safety_checker = true
         };
 
-        SetAuthHeader(falKey);
-
-        var response = await _httpClient.PostAsync(
-            "https://fal.run/fal-ai/flux/dev/image-to-image",
-            new StringContent(JsonSerializer.Serialize(requestBody), Encoding.UTF8, "application/json")
-        );
-
-        var responseBody = await response.Content.ReadAsStringAsync();
-
-        if (!response.IsSuccessStatusCode)
-        {
-            _logger.LogError("FAL reimagine error: {Status} {Body}", response.StatusCode, responseBody);
-            throw new Exception("Error al reimaginar la imagen. Intenta de nuevo.");
-        }
-
-        _logger.LogInformation("Reimagine response: {Body}", responseBody[..Math.Min(500, responseBody.Length)]);
+        var responseBody = await CallFalApiDirect("fal-ai/flux/dev/image-to-image", requestBody, falKey);
 
         var result = JsonSerializer.Deserialize<FalImageResponse>(responseBody);
         var resultImageUrl = result?.Images?.FirstOrDefault()?.Url
@@ -263,22 +333,7 @@ public class AiToolsService
             enable_safety_checker = true
         };
 
-        SetAuthHeader(falKey);
-
-        var response = await _httpClient.PostAsync(
-            "https://fal.run/fal-ai/flux/dev/image-to-image",
-            new StringContent(JsonSerializer.Serialize(requestBody), Encoding.UTF8, "application/json")
-        );
-
-        var responseBody = await response.Content.ReadAsStringAsync();
-
-        if (!response.IsSuccessStatusCode)
-        {
-            _logger.LogError("FAL sketch-to-image error: {Status} {Body}", response.StatusCode, responseBody);
-            throw new Exception("Error al convertir el boceto. Intenta de nuevo.");
-        }
-
-        _logger.LogInformation("Sketch-to-image response: {Body}", responseBody[..Math.Min(500, responseBody.Length)]);
+        var responseBody = await CallFalApiDirect("fal-ai/flux/dev/image-to-image", requestBody, falKey);
 
         var result = JsonSerializer.Deserialize<FalImageResponse>(responseBody);
         var resultImageUrl = result?.Images?.FirstOrDefault()?.Url
@@ -308,22 +363,7 @@ public class AiToolsService
             enable_safety_checker = true
         };
 
-        SetAuthHeader(falKey);
-
-        var response = await _httpClient.PostAsync(
-            "https://fal.run/fal-ai/flux/dev/image-to-image",
-            new StringContent(JsonSerializer.Serialize(requestBody), Encoding.UTF8, "application/json")
-        );
-
-        var responseBody = await response.Content.ReadAsStringAsync();
-
-        if (!response.IsSuccessStatusCode)
-        {
-            _logger.LogError("FAL retouch error: {Status} {Body}", response.StatusCode, responseBody);
-            throw new Exception("Error al retocar la imagen. Intenta de nuevo.");
-        }
-
-        _logger.LogInformation("Retouch response: {Body}", responseBody[..Math.Min(500, responseBody.Length)]);
+        var responseBody = await CallFalApiDirect("fal-ai/flux/dev/image-to-image", requestBody, falKey);
 
         var result = JsonSerializer.Deserialize<FalImageResponse>(responseBody);
         var retouchUrl = result?.Images?.FirstOrDefault()?.Url
@@ -344,6 +384,15 @@ public class FalUpscaleResponse
 {
     [JsonPropertyName("image")]
     public FalSingleImage? Image { get; set; }
+}
+
+public class FalStorageInitiate
+{
+    [JsonPropertyName("file_url")]
+    public string? FileUrl { get; set; }
+
+    [JsonPropertyName("upload_url")]
+    public string? UploadUrl { get; set; }
 }
 
 public class FalUploadResult

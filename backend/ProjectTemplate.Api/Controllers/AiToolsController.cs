@@ -28,9 +28,18 @@ public class AiToolsController : ControllerBase
             var result = await _aiToolsService.RemoveBackgroundAsync(request);
             return Ok(result);
         }
+        catch (InvalidOperationException ex) when (ex.Message.Contains("API key"))
+        {
+            return StatusCode(503, new { message = "El servicio no está configurado. Contacta al administrador." });
+        }
+        catch (ArgumentException ex)
+        {
+            _logger.LogWarning(ex, "Invalid argument for remove-background");
+            return BadRequest(new { message = ex.Message });
+        }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error removing background");
+            _logger.LogError(ex, "Error removing background: {Message}", ex.Message);
             return StatusCode(500, new { message = ex.Message });
         }
     }
@@ -43,15 +52,21 @@ public class AiToolsController : ControllerBase
             if (string.IsNullOrWhiteSpace(request.ImageUrl))
                 return BadRequest(new { message = "Se requiere una imagen." });
 
-            if (request.Scale != 2 && request.Scale != 4)
-                return BadRequest(new { message = "La escala debe ser 2 o 4." });
-
             var result = await _aiToolsService.UpscaleAsync(request);
             return Ok(result);
         }
+        catch (InvalidOperationException ex) when (ex.Message.Contains("API key"))
+        {
+            return StatusCode(503, new { message = "El servicio no está configurado. Contacta al administrador." });
+        }
+        catch (ArgumentException ex)
+        {
+            _logger.LogWarning(ex, "Invalid argument for upscale");
+            return BadRequest(new { message = ex.Message });
+        }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error upscaling image");
+            _logger.LogError(ex, "Error upscaling image: {Message}", ex.Message);
             return StatusCode(500, new { message = ex.Message });
         }
     }
@@ -69,9 +84,18 @@ public class AiToolsController : ControllerBase
             var result = await _aiToolsService.ReimagineAsync(request);
             return Ok(result);
         }
+        catch (InvalidOperationException ex) when (ex.Message.Contains("API key"))
+        {
+            return StatusCode(503, new { message = "El servicio no está configurado. Contacta al administrador." });
+        }
+        catch (ArgumentException ex)
+        {
+            _logger.LogWarning(ex, "Invalid argument for reimagine");
+            return BadRequest(new { message = ex.Message });
+        }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error reimagining image");
+            _logger.LogError(ex, "Error reimagining image: {Message}", ex.Message);
             return StatusCode(500, new { message = ex.Message });
         }
     }
@@ -89,9 +113,18 @@ public class AiToolsController : ControllerBase
             var result = await _aiToolsService.SketchToImageAsync(request);
             return Ok(result);
         }
+        catch (InvalidOperationException ex) when (ex.Message.Contains("API key"))
+        {
+            return StatusCode(503, new { message = "El servicio no está configurado. Contacta al administrador." });
+        }
+        catch (ArgumentException ex)
+        {
+            _logger.LogWarning(ex, "Invalid argument for sketch-to-image");
+            return BadRequest(new { message = ex.Message });
+        }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error converting sketch to image");
+            _logger.LogError(ex, "Error converting sketch to image: {Message}", ex.Message);
             return StatusCode(500, new { message = ex.Message });
         }
     }
@@ -109,9 +142,18 @@ public class AiToolsController : ControllerBase
             var result = await _aiToolsService.RetouchAsync(request);
             return Ok(result);
         }
+        catch (InvalidOperationException ex) when (ex.Message.Contains("API key"))
+        {
+            return StatusCode(503, new { message = "El servicio no está configurado. Contacta al administrador." });
+        }
+        catch (ArgumentException ex)
+        {
+            _logger.LogWarning(ex, "Invalid argument for retouch");
+            return BadRequest(new { message = ex.Message });
+        }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error retouching image");
+            _logger.LogError(ex, "Error retouching image: {Message}", ex.Message);
             return StatusCode(500, new { message = ex.Message });
         }
     }
