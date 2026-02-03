@@ -52,8 +52,9 @@ public class GenerationController : ControllerBase
         if (string.IsNullOrWhiteSpace(request.Prompt))
             return BadRequest(new { message = "Por favor escribe una descripción de lo que quieres crear." });
 
-        // Retry up to 2 times on transient failures
-        const int maxRetries = 2;
+        // For images: retry up to 2 times on transient failures
+        // For videos: no retry (they use async queue and handle their own retries)
+        var maxRetries = request.Type == "video" ? 0 : 2;
         Exception? lastError = null;
 
         for (int attempt = 0; attempt <= maxRetries; attempt++)
@@ -88,23 +89,42 @@ public class GenerationController : ControllerBase
 
                 return Ok(response);
             }
-            catch (InvalidOperationException ex) when (ex.Message.Contains("API key"))
+            catch (InvalidOperationException ex) when (ex.Message.Contains("API key") || ex.Message.Contains("not configured"))
             {
-                // Config error — don't retry
                 _logger.LogError(ex, "API key not configured");
                 return StatusCode(503, new { message = "El servicio de generación necesita ser configurado. Contacta al administrador." });
+            }
+            catch (TaskCanceledException ex)
+            {
+                _logger.LogError(ex, "Request timeout for {Type}", request.Type);
+                return StatusCode(504, new { message = request.Type == "video"
+                    ? "La generación del video tardó demasiado. Los videos pueden tardar hasta 5 minutos. Intenta de nuevo."
+                    : "La generación tardó demasiado. Intenta de nuevo." });
+            }
+            catch (HttpRequestException ex)
+            {
+                lastError = ex;
+                _logger.LogWarning(ex, "Network error on attempt {Attempt}", attempt);
+                if (attempt < maxRetries)
+                    await Task.Delay(1000 * (attempt + 1));
             }
             catch (Exception ex)
             {
                 lastError = ex;
-                _logger.LogWarning(ex, "Generation attempt {Attempt} failed", attempt);
+                _logger.LogWarning(ex, "Generation attempt {Attempt} failed: {Message}", attempt, ex.Message);
                 if (attempt < maxRetries)
-                    await Task.Delay(1000 * (attempt + 1)); // Wait before retry
+                    await Task.Delay(1000 * (attempt + 1));
             }
         }
 
         _logger.LogError(lastError, "All generation attempts failed for prompt: {Prompt}", request.Prompt);
-        return StatusCode(500, new { message = "No se pudo generar el contenido. Por favor intenta de nuevo con una descripción diferente." });
+
+        // Return user-friendly error (never expose technical details)
+        var friendlyMessage = request.Type == "video"
+            ? "No se pudo generar el video. Intenta con una descripción diferente o más simple."
+            : "No se pudo generar la imagen. Intenta de nuevo con una descripción diferente.";
+
+        return StatusCode(500, new { message = friendlyMessage });
     }
 
     [HttpPost("voice")]
