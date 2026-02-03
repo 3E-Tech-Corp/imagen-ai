@@ -3,9 +3,10 @@ import ResultCard from './ResultCard';
 
 interface GalleryProps {
   results: GenerationResult[];
+  onEditVideo?: (result: GenerationResult) => void;
 }
 
-export default function Gallery({ results }: GalleryProps) {
+export default function Gallery({ results, onEditVideo }: GalleryProps) {
   if (results.length === 0) {
     return (
       <div className="text-center py-20">
@@ -17,12 +18,15 @@ export default function Gallery({ results }: GalleryProps) {
           Escribe una descripción detallada de lo que quieres generar. 
           Mientras más detalles incluyas, mejor será el resultado.
         </p>
-        <div className="mt-8 grid grid-cols-1 sm:grid-cols-2 gap-4 max-w-lg mx-auto text-left">
+        <div className="mt-8 grid grid-cols-1 sm:grid-cols-3 gap-4 max-w-2xl mx-auto text-left">
           <div className="bg-gray-800/50 rounded-xl p-4 border border-gray-700/50">
-            <p className="text-sm text-gray-300">💡 <strong>Tip:</strong> Incluye detalles como iluminación, ángulo de cámara y estilo artístico.</p>
+            <p className="text-sm text-gray-300">🖼️ <strong>Imágenes:</strong> Describe personas, animales, objetos con detalle.</p>
           </div>
           <div className="bg-gray-800/50 rounded-xl p-4 border border-gray-700/50">
-            <p className="text-sm text-gray-300">🎯 <strong>Tip:</strong> Usa el prompt negativo para excluir elementos que no quieres.</p>
+            <p className="text-sm text-gray-300">🎬 <strong>Videos:</strong> Genera videos y edítalos con texto, voz y filtros.</p>
+          </div>
+          <div className="bg-gray-800/50 rounded-xl p-4 border border-gray-700/50">
+            <p className="text-sm text-gray-300">🎙️ <strong>Voces:</strong> Crea narración en 33+ idiomas, voz masculina o femenina.</p>
           </div>
         </div>
       </div>
@@ -38,7 +42,11 @@ export default function Gallery({ results }: GalleryProps) {
       </div>
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
         {results.map((result) => (
-          <ResultCard key={result.id} result={result} />
+          <ResultCard
+            key={result.id}
+            result={result}
+            onEdit={result.type === 'video' ? onEditVideo : undefined}
+          />
         ))}
       </div>
     </div>

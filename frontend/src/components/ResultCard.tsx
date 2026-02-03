@@ -2,9 +2,10 @@ import { GenerationResult } from '../types';
 
 interface ResultCardProps {
   result: GenerationResult;
+  onEdit?: (result: GenerationResult) => void;
 }
 
-export default function ResultCard({ result }: ResultCardProps) {
+export default function ResultCard({ result, onEdit }: ResultCardProps) {
   const handleDownload = () => {
     const ext = result.type === 'image' ? 'png' : result.type === 'video' ? 'mp4' : 'mp3';
     const link = document.createElement('a');
@@ -106,6 +107,14 @@ export default function ResultCard({ result }: ResultCardProps) {
 
         {/* Overlay on hover */}
         <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-3">
+          {result.type === 'video' && onEdit && (
+            <button
+              onClick={() => onEdit(result)}
+              className="px-4 py-2 bg-fuchsia-600 text-white rounded-xl text-sm font-medium hover:bg-fuchsia-500 transition-colors"
+            >
+              ✏️ Editar
+            </button>
+          )}
           <button
             onClick={handleDownload}
             className="px-4 py-2 bg-violet-600 text-white rounded-xl text-sm font-medium hover:bg-violet-500 transition-colors"

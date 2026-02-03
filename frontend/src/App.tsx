@@ -2,6 +2,7 @@ import { useState, useCallback } from 'react';
 import Header from './components/Header';
 import PromptInput from './components/PromptInput';
 import VoiceGenerator from './components/VoiceGenerator';
+import VideoEditor from './components/VideoEditor';
 import Gallery from './components/Gallery';
 import { GenerationType, GenerationResult, ImageStyle, VoiceGender } from './types';
 import api from './services/api';
@@ -10,6 +11,7 @@ export default function App() {
   const [activeTab, setActiveTab] = useState<GenerationType>('image');
   const [results, setResults] = useState<GenerationResult[]>([]);
   const [isGenerating, setIsGenerating] = useState(false);
+  const [editingVideo, setEditingVideo] = useState<GenerationResult | null>(null);
 
   const handleGenerate = useCallback(async (prompt: string, style: ImageStyle, negativePrompt?: string) => {
     const tempId = crypto.randomUUID();
@@ -88,6 +90,27 @@ export default function App() {
     }
   }, []);
 
+  const handleEditVideo = useCallback((result: GenerationResult) => {
+    setEditingVideo(result);
+  }, []);
+
+  const handleVideoSaved = useCallback((newUrl: string) => {
+    if (editingVideo) {
+      // Add the edited video as a new result
+      const newResult: GenerationResult = {
+        id: crypto.randomUUID(),
+        prompt: `✏️ Editado: ${editingVideo.prompt}`,
+        type: 'video',
+        style: editingVideo.style,
+        url: newUrl,
+        createdAt: new Date().toISOString(),
+        status: 'completed',
+      };
+      setResults((prev) => [newResult, ...prev]);
+    }
+    setEditingVideo(null);
+  }, [editingVideo]);
+
   return (
     <div className="min-h-screen bg-gray-950">
       <Header activeTab={activeTab} onTabChange={setActiveTab} />
@@ -111,9 +134,22 @@ export default function App() {
 
         {/* Results gallery */}
         <section>
-          <Gallery results={results} />
+          <Gallery
+            results={results}
+            onEditVideo={handleEditVideo}
+          />
         </section>
       </main>
+
+      {/* Video Editor Modal */}
+      {editingVideo && (
+        <VideoEditor
+          videoUrl={editingVideo.url}
+          videoId={editingVideo.id}
+          onClose={() => setEditingVideo(null)}
+          onSaved={handleVideoSaved}
+        />
+      )}
 
       {/* Footer */}
       <footer className="border-t border-gray-800 mt-12">

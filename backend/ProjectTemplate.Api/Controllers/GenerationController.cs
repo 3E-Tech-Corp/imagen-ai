@@ -10,17 +10,20 @@ public class GenerationController : ControllerBase
 {
     private readonly ImageGenerationService _generationService;
     private readonly TtsService _ttsService;
+    private readonly VideoEditService _videoEditService;
     private readonly ILogger<GenerationController> _logger;
     private readonly IWebHostEnvironment _env;
 
     public GenerationController(
         ImageGenerationService generationService,
         TtsService ttsService,
+        VideoEditService videoEditService,
         ILogger<GenerationController> logger,
         IWebHostEnvironment env)
     {
         _generationService = generationService;
         _ttsService = ttsService;
+        _videoEditService = videoEditService;
         _logger = logger;
         _env = env;
     }
@@ -107,6 +110,27 @@ public class GenerationController : ControllerBase
         {
             _logger.LogError(ex, "Voice generation failed");
             return StatusCode(500, new { message = $"Error al generar voz: {ex.Message}" });
+        }
+    }
+
+    [HttpPost("edit-video")]
+    public async Task<IActionResult> EditVideo([FromBody] VideoEditRequest request)
+    {
+        if (string.IsNullOrWhiteSpace(request.VideoUrl))
+            return BadRequest(new { message = "La URL del video es requerida" });
+
+        try
+        {
+            _logger.LogInformation("Editing video: {VideoId}", request.VideoId);
+
+            var outputUrl = await _videoEditService.EditVideoAsync(request);
+
+            return Ok(new { url = outputUrl });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Video editing failed");
+            return StatusCode(500, new { message = $"Error al editar video: {ex.Message}" });
         }
     }
 }
