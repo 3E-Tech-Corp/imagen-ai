@@ -1,4 +1,4 @@
-export type GenerationType = 'chat' | 'image' | 'video' | 'voice' | 'tools' | 'recipe' | 'projects';
+export type GenerationType = 'image' | 'video' | 'voice' | 'tools' | 'recipe' | 'projects';
 
 export type VoiceGender = 'female' | 'male';
 
@@ -213,33 +213,3 @@ export interface GenerationResult {
   error?: string;
 }
 
-// === CHAT TYPES ===
-export interface ChatMessage {
-  id: string;
-  role: 'user' | 'assistant';
-  content: string;
-  mediaUrl?: string;
-  mediaType?: 'image' | 'video' | 'video_pending' | null;
-  jobId?: string;
-  suggestions?: string[];
-  attachments?: string[];
-  timestamp: string;
-  isLoading?: boolean;
-}
-
-export interface ChatRequest {
-  message: string;
-  conversationId?: string;
-  attachments?: string[];
-  previousResults?: string[];
-  history?: { role: string; content: string; mediaUrl?: string; mediaType?: string }[];
-}
-
-export interface ChatResponse {
-  conversationId: string;
-  message: string;
-  mediaUrl?: string;
-  mediaType?: 'image' | 'video' | 'video_pending' | null;
-  jobId?: string;
-  suggestions?: string[];
-}
