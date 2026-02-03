@@ -9,11 +9,12 @@ import Gallery from './components/Gallery';
 import RecipeGenerator from './components/RecipeGenerator';
 import ProjectManager from './components/ProjectManager';
 import AiTools from './components/AiTools';
-import { GenerationType, GenerationResult, VoiceGender } from './types';
+import CreativeChat from './components/CreativeChat';
+import { GenerationType, GenerationResult } from './types';
 import api from './services/api';
 
 export default function App() {
-  const [activeTab, setActiveTab] = useState<GenerationType>('image');
+  const [activeTab, setActiveTab] = useState<GenerationType>('chat');
   const [results, setResults] = useState<GenerationResult[]>([]);
   const [isGenerating, setIsGenerating] = useState(false);
   const [editingVideo, setEditingVideo] = useState<GenerationResult | null>(null);
@@ -35,7 +36,6 @@ export default function App() {
     setIsGenerating(true);
 
     try {
-      // Use shorter timeout for videos since they return immediately with "generating" status
       const timeoutMs = activeTab === 'video' ? 30_000 : undefined;
       const result = await api.post<GenerationResult>('/generation/create', {
         prompt,
@@ -52,22 +52,16 @@ export default function App() {
         referenceImages: options.referenceImages,
       }, timeoutMs);
 
-      // For videos: the backend returns immediately with status "generating"
-      // We need to poll for completion
       if (activeTab === 'video' && result.status === 'generating') {
         const jobId = result.id;
-
-        // Update placeholder with server-assigned job ID
         setResults((prev) =>
           prev.map((r) => (r.id === tempId ? { ...result, id: tempId, status: 'generating' as const } : r))
         );
         setIsGenerating(false);
 
-        // Poll for video completion every 5 seconds
         const pollInterval = setInterval(async () => {
           try {
             const statusResult = await api.get<GenerationResult>(`/generation/job/${jobId}`);
-
             if (statusResult.status === 'completed') {
               clearInterval(pollInterval);
               setResults((prev) =>
@@ -87,13 +81,11 @@ export default function App() {
                 )
               );
             }
-            // else still "generating", keep polling
           } catch {
-            // Network error during poll — keep trying, don't kill the interval
+            // Network error — keep polling
           }
         }, 5000);
 
-        // Safety: stop polling after 10 minutes max
         setTimeout(() => {
           clearInterval(pollInterval);
           setResults((prev) =>
@@ -105,10 +97,9 @@ export default function App() {
           );
         }, 600_000);
 
-        return; // Don't update results below — the poll handles it
+        return;
       }
 
-      // For images: update immediately (synchronous response)
       setResults((prev) =>
         prev.map((r) => (r.id === tempId ? { ...result, status: 'completed' as const } : r))
       );
@@ -204,65 +195,32 @@ export default function App() {
     }
   }, []);
 
-  const handleVoiceGenerate = useCallback(async (text: string, language: string, gender: VoiceGender) => {
-    const tempId = crypto.randomUUID();
-    const placeholderResult: GenerationResult = {
-      id: tempId,
-      prompt: text,
-      type: 'voice',
-      style: 'realistic',
-      url: '',
-      createdAt: new Date().toISOString(),
-      status: 'generating',
-    };
-
-    setResults((prev) => [placeholderResult, ...prev]);
-    setIsGenerating(true);
-
-    try {
-      const result = await api.post<GenerationResult>('/generation/voice', {
-        text,
-        language,
-        gender,
-      });
-
-      setResults((prev) =>
-        prev.map((r) => (r.id === tempId ? { ...result, type: 'voice' as const, status: 'completed' as const } : r))
-      );
-    } catch (err) {
-      setResults((prev) =>
-        prev.map((r) =>
-          r.id === tempId
-            ? { ...r, status: 'failed' as const, error: err instanceof Error ? err.message : 'Error desconocido' }
-            : r
-        )
-      );
-    } finally {
-      setIsGenerating(false);
-    }
-  }, []);
-
   return (
     <div className="min-h-screen bg-gray-950">
       <Header activeTab={activeTab} onTabChange={setActiveTab} />
 
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
-        <StatusBanner />
-        <section className={activeTab === 'projects' || activeTab === 'tools' ? 'max-w-5xl mx-auto' : 'max-w-3xl mx-auto'}>
-          {activeTab === 'projects' ? (
-            <ProjectManager />
-          ) : activeTab === 'tools' ? (
-            <AiTools />
-          ) : activeTab === 'recipe' ? (
-            <RecipeGenerator isGenerating={isGenerating} setIsGenerating={setIsGenerating} />
-          ) : activeTab === 'voice' ? (
-            <VoiceGenerator onGenerate={handleVoiceGenerate} isGenerating={isGenerating} />
-          ) : (
-            <PromptInput type={activeTab} onGenerate={handleGenerate} isGenerating={isGenerating} />
-          )}
-        </section>
+      <main className={`mx-auto ${activeTab === 'chat' ? '' : 'max-w-7xl px-4 sm:px-6 lg:px-8 py-8 space-y-8'}`}>
+        {activeTab !== 'chat' && <StatusBanner />}
+        
+        {activeTab === 'chat' ? (
+          <CreativeChat />
+        ) : (
+          <section className={activeTab === 'projects' || activeTab === 'tools' ? 'max-w-5xl mx-auto' : 'max-w-3xl mx-auto'}>
+            {activeTab === 'projects' ? (
+              <ProjectManager />
+            ) : activeTab === 'tools' ? (
+              <AiTools />
+            ) : activeTab === 'recipe' ? (
+              <RecipeGenerator isGenerating={isGenerating} setIsGenerating={setIsGenerating} />
+            ) : activeTab === 'voice' ? (
+              <VoiceGenerator isGenerating={isGenerating} />
+            ) : (
+              <PromptInput type={activeTab} onGenerate={handleGenerate} isGenerating={isGenerating} />
+            )}
+          </section>
+        )}
 
-        {activeTab !== 'recipe' && activeTab !== 'tools' && (
+        {activeTab !== 'recipe' && activeTab !== 'tools' && activeTab !== 'chat' && (
           <section>
             <Gallery
               results={results}
@@ -300,13 +258,15 @@ export default function App() {
         />
       )}
 
-      <footer className="border-t border-gray-800 mt-12">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-          <p className="text-center text-gray-500 text-sm">
-            Imagen AI — Crea imágenes, videos y voces con inteligencia artificial
-          </p>
-        </div>
-      </footer>
+      {activeTab !== 'chat' && (
+        <footer className="border-t border-gray-800 mt-12">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+            <p className="text-center text-gray-500 text-sm">
+              Imagen AI — Crea imágenes, videos y voces con inteligencia artificial
+            </p>
+          </div>
+        </footer>
+      )}
     </div>
   );
 }

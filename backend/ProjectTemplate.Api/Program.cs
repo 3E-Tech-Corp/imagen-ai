@@ -79,6 +79,7 @@ builder.Services.AddSingleton<RecipeService>();
 builder.Services.AddSingleton<ProjectService>();
 builder.Services.AddSingleton<AiToolsService>();
 builder.Services.AddSingleton<VideoJobService>();
+builder.Services.AddSingleton<ChatService>();
 
 var app = builder.Build();
 
