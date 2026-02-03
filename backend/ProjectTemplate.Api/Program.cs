@@ -76,6 +76,7 @@ builder.Services.AddSingleton<ImageGenerationService>();
 builder.Services.AddSingleton<TtsService>();
 builder.Services.AddSingleton<VideoEditService>();
 builder.Services.AddSingleton<RecipeService>();
+builder.Services.AddSingleton<ProjectService>();
 
 var app = builder.Build();
 
@@ -120,6 +121,10 @@ using (var scope = app.Services.CreateScope())
                     );
                 END");
             app.Logger.LogInformation("Database migration completed successfully");
+
+            // Ensure project tables
+            var projectService = scope.ServiceProvider.GetRequiredService<ProjectService>();
+            await projectService.EnsureTablesAsync();
         }
         catch (Exception ex)
         {

@@ -7,6 +7,7 @@ import VideoEditor from './components/VideoEditor';
 import ImageEditor from './components/ImageEditor';
 import Gallery from './components/Gallery';
 import RecipeGenerator from './components/RecipeGenerator';
+import ProjectManager from './components/ProjectManager';
 import { GenerationType, GenerationResult, VoiceGender } from './types';
 import api from './services/api';
 
@@ -106,8 +107,10 @@ export default function App() {
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
         <StatusBanner />
-        <section className="max-w-3xl mx-auto">
-          {activeTab === 'recipe' ? (
+        <section className={activeTab === 'projects' ? 'max-w-5xl mx-auto' : 'max-w-3xl mx-auto'}>
+          {activeTab === 'projects' ? (
+            <ProjectManager />
+          ) : activeTab === 'recipe' ? (
             <RecipeGenerator isGenerating={isGenerating} setIsGenerating={setIsGenerating} />
           ) : activeTab === 'voice' ? (
             <VoiceGenerator onGenerate={handleVoiceGenerate} isGenerating={isGenerating} />

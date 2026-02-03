@@ -1,4 +1,11 @@
+import { useState, useEffect } from 'react';
+import api from '../services/api';
 import { GenerationResult } from '../types';
+
+interface SimpleProject {
+  id: string;
+  name: string;
+}
 
 interface ResultCardProps {
   result: GenerationResult;
@@ -6,6 +13,36 @@ interface ResultCardProps {
 }
 
 export default function ResultCard({ result, onEdit }: ResultCardProps) {
+  const [showSaveMenu, setShowSaveMenu] = useState(false);
+  const [projects, setProjects] = useState<SimpleProject[]>([]);
+  const [saved, setSaved] = useState(false);
+
+  const loadProjects = async () => {
+    try {
+      const data = await api.get<SimpleProject[]>('/project');
+      setProjects(data);
+    } catch { /* ignore */ }
+  };
+
+  useEffect(() => {
+    if (showSaveMenu && projects.length === 0) loadProjects();
+  }, [showSaveMenu]);
+
+  const saveToProject = async (projectId: string) => {
+    try {
+      await api.post(`/project/${projectId}/items`, {
+        type: result.type,
+        prompt: result.prompt,
+        url: result.url,
+        thumbnailUrl: result.thumbnailUrl,
+        style: result.style,
+      });
+      setSaved(true);
+      setShowSaveMenu(false);
+      setTimeout(() => setSaved(false), 3000);
+    } catch { /* ignore */ }
+  };
+
   const handleDownload = () => {
     const ext = result.type === 'image' ? 'png' : result.type === 'video' ? 'mp4' : 'mp3';
     const link = document.createElement('a');
@@ -149,27 +186,54 @@ export default function ResultCard({ result, onEdit }: ResultCardProps) {
         )}
 
         {/* Overlay on hover */}
-        <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-3">
+        <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2 flex-wrap p-4">
           {onEdit && (
             <button
               onClick={() => onEdit(result)}
-              className="px-4 py-2 bg-fuchsia-600 text-white rounded-xl text-sm font-medium hover:bg-fuchsia-500 transition-colors"
+              className="px-3 py-2 bg-fuchsia-600 text-white rounded-xl text-xs font-medium hover:bg-fuchsia-500 transition-colors"
             >
               ✏️ Editar
             </button>
           )}
           <button
             onClick={handleDownload}
-            className="px-4 py-2 bg-violet-600 text-white rounded-xl text-sm font-medium hover:bg-violet-500 transition-colors"
+            className="px-3 py-2 bg-violet-600 text-white rounded-xl text-xs font-medium hover:bg-violet-500 transition-colors"
           >
             ⬇️ Descargar
           </button>
           <button
             onClick={() => window.open(result.url, '_blank')}
-            className="px-4 py-2 bg-gray-700 text-white rounded-xl text-sm font-medium hover:bg-gray-600 transition-colors"
+            className="px-3 py-2 bg-gray-700 text-white rounded-xl text-xs font-medium hover:bg-gray-600 transition-colors"
           >
-            🔍 Ver completo
+            🔍 Ver
           </button>
+          <div className="relative">
+            <button
+              onClick={(e) => { e.stopPropagation(); setShowSaveMenu(!showSaveMenu); }}
+              className={`px-3 py-2 rounded-xl text-xs font-medium transition-colors ${
+                saved ? 'bg-green-600 text-white' : 'bg-blue-600 text-white hover:bg-blue-500'
+              }`}
+            >
+              {saved ? '✅ Guardado' : '📁 Guardar'}
+            </button>
+            {showSaveMenu && (
+              <div className="absolute bottom-full mb-2 right-0 bg-gray-900 border border-gray-700 rounded-xl shadow-xl p-2 min-w-[180px] z-50">
+                {projects.length === 0 ? (
+                  <p className="text-gray-400 text-xs p-2">No hay proyectos. Crea uno primero.</p>
+                ) : (
+                  projects.map((p) => (
+                    <button
+                      key={p.id}
+                      onClick={(e) => { e.stopPropagation(); saveToProject(p.id); }}
+                      className="w-full text-left px-3 py-2 text-gray-300 text-xs hover:bg-gray-800 rounded-lg transition-colors"
+                    >
+                      📁 {p.name}
+                    </button>
+                  ))
+                )}
+              </div>
+            )}
+          </div>
         </div>
 
         {/* Type badge */}

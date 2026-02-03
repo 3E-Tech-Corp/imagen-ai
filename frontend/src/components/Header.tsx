@@ -63,6 +63,16 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
             >
               🍳 Recetas
             </button>
+            <button
+              onClick={() => onTabChange('projects')}
+              className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+                activeTab === 'projects'
+                  ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/25'
+                  : 'text-gray-400 hover:text-white hover:bg-gray-700'
+              }`}
+            >
+              📁 Proyectos
+            </button>
           </div>
         </div>
       </div>
