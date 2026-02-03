@@ -31,6 +31,14 @@ public class RetouchRequest
     public string Prompt { get; set; } = string.Empty;
 }
 
+public class LipSyncRequest
+{
+    public string ImageUrl { get; set; } = string.Empty;
+    public string Text { get; set; } = string.Empty;
+    public string Language { get; set; } = "es";
+    public string Gender { get; set; } = "female";
+}
+
 public class AiToolResult
 {
     public string Url { get; set; } = string.Empty;

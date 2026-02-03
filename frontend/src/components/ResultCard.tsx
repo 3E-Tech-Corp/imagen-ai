@@ -10,9 +10,10 @@ interface SimpleProject {
 interface ResultCardProps {
   result: GenerationResult;
   onEdit?: (result: GenerationResult) => void;
+  onCreateVideo?: (imageUrl: string) => void;
 }
 
-export default function ResultCard({ result, onEdit }: ResultCardProps) {
+export default function ResultCard({ result, onEdit, onCreateVideo }: ResultCardProps) {
   const [showSaveMenu, setShowSaveMenu] = useState(false);
   const [projects, setProjects] = useState<SimpleProject[]>([]);
   const [saved, setSaved] = useState(false);
@@ -193,6 +194,14 @@ export default function ResultCard({ result, onEdit }: ResultCardProps) {
               className="px-3 py-2 bg-fuchsia-600 text-white rounded-xl text-xs font-medium hover:bg-fuchsia-500 transition-colors"
             >
               ✏️ Editar
+            </button>
+          )}
+          {onCreateVideo && (
+            <button
+              onClick={() => onCreateVideo(result.url)}
+              className="px-3 py-2 bg-gradient-to-r from-pink-600 to-rose-600 text-white rounded-xl text-xs font-medium hover:from-pink-500 hover:to-rose-500 transition-colors shadow-lg shadow-pink-600/25"
+            >
+              🎬 Crear Video
             </button>
           )}
           <button

@@ -2,7 +2,7 @@ import { useState, useRef, useCallback, DragEvent } from 'react';
 import api from '../services/api';
 
 // ── Types ──────────────────────────────────────────────────────────────
-type ToolId = 'remove-bg' | 'upscale' | 'reimagine' | 'sketch' | 'retouch';
+type ToolId = 'remove-bg' | 'upscale' | 'reimagine' | 'sketch' | 'retouch' | 'lip-sync';
 
 interface ToolCard {
   id: ToolId;
@@ -59,6 +59,14 @@ const TOOLS: ToolCard[] = [
     description: 'Retoca y mejora detalles de tu imagen con instrucciones de texto',
     gradient: 'from-amber-500 to-orange-600',
     shadow: 'shadow-amber-500/20',
+  },
+  {
+    id: 'lip-sync',
+    icon: '🗣️',
+    title: 'Cabeza Parlante',
+    description: 'Convierte una foto en un video hablando con texto personalizado',
+    gradient: 'from-pink-500 to-rose-600',
+    shadow: 'shadow-pink-500/20',
   },
 ];
 
@@ -648,6 +656,167 @@ function RetouchTool() {
   );
 }
 
+const VOICE_GENDERS = [
+  { value: 'female', label: '👩 Femenina', color: 'pink' },
+  { value: 'male', label: '👨 Masculina', color: 'blue' },
+];
+
+const LIP_SYNC_LANGUAGES = [
+  { code: 'es', name: 'Español', flag: '🇪🇸' },
+  { code: 'en', name: 'English', flag: '🇺🇸' },
+  { code: 'fr', name: 'Français', flag: '🇫🇷' },
+  { code: 'de', name: 'Deutsch', flag: '🇩🇪' },
+  { code: 'pt', name: 'Português', flag: '🇧🇷' },
+  { code: 'it', name: 'Italiano', flag: '🇮🇹' },
+  { code: 'zh', name: '中文', flag: '🇨🇳' },
+  { code: 'ja', name: '日本語', flag: '🇯🇵' },
+];
+
+function LipSyncTool() {
+  const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [imageData, setImageData] = useState<string | null>(null);
+  const [text, setText] = useState('');
+  const [language, setLanguage] = useState('es');
+  const [gender, setGender] = useState('female');
+  const [result, setResult] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const handleImageSelect = (dataUrl: string) => {
+    setImagePreview(dataUrl);
+    setImageData(dataUrl);
+    setResult(null);
+    setError(null);
+  };
+
+  const handleProcess = async () => {
+    if (!imageData || !text.trim()) return;
+    setLoading(true);
+    setError(null);
+    setResult(null);
+    try {
+      const res = await api.post<AiToolResult>('/ai-tools/lip-sync', {
+        imageUrl: imageData,
+        text: text.trim(),
+        language,
+        gender,
+      }, 300_000); // 5 min timeout for lip-sync
+      setResult(res.url);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Error desconocido');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="space-y-6">
+      <ImageDropzone
+        imagePreview={imagePreview}
+        onImageSelect={handleImageSelect}
+        label="Arrastra una foto con un rostro"
+      />
+
+      <div>
+        <label className="block text-gray-300 text-sm font-medium mb-2">
+          💬 ¿Qué quieres que diga?
+        </label>
+        <textarea
+          value={text}
+          onChange={(e) => setText(e.target.value)}
+          placeholder="Ej: Hola, soy una inteligencia artificial y estoy muy feliz de conocerte..."
+          className="w-full bg-gray-800 border border-gray-700 rounded-xl px-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-pink-500 focus:border-transparent resize-none"
+          rows={3}
+        />
+        <p className="text-gray-500 text-xs mt-1 text-right">{text.length} caracteres</p>
+      </div>
+
+      <div>
+        <label className="block text-gray-300 text-sm font-medium mb-2">👤 Tipo de voz</label>
+        <div className="flex gap-3">
+          {VOICE_GENDERS.map((g) => (
+            <button
+              key={g.value}
+              onClick={() => setGender(g.value)}
+              className={`flex-1 py-3 rounded-xl text-sm font-medium transition-all ${
+                gender === g.value
+                  ? g.color === 'pink'
+                    ? 'bg-pink-600 text-white shadow-lg shadow-pink-600/25'
+                    : 'bg-blue-600 text-white shadow-lg shadow-blue-600/25'
+                  : 'bg-gray-800 text-gray-400 border border-gray-700 hover:text-white'
+              }`}
+            >
+              {g.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div>
+        <label className="block text-gray-300 text-sm font-medium mb-2">🌍 Idioma</label>
+        <div className="flex flex-wrap gap-2">
+          {LIP_SYNC_LANGUAGES.map((lang) => (
+            <button
+              key={lang.code}
+              onClick={() => setLanguage(lang.code)}
+              className={`px-3 py-2 rounded-xl text-xs font-medium transition-all ${
+                language === lang.code
+                  ? 'bg-pink-600 text-white shadow-lg shadow-pink-600/25'
+                  : 'bg-gray-800 text-gray-400 border border-gray-700 hover:text-white'
+              }`}
+            >
+              {lang.flag} {lang.name}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <button
+        onClick={handleProcess}
+        disabled={!imageData || !text.trim() || loading}
+        className="w-full py-3 px-6 bg-gradient-to-r from-pink-500 to-rose-600 text-white rounded-xl font-semibold text-lg disabled:opacity-50 disabled:cursor-not-allowed hover:from-pink-400 hover:to-rose-500 transition-all flex items-center justify-center gap-3"
+      >
+        {loading ? (
+          <>
+            <svg className="animate-spin h-5 w-5" viewBox="0 0 24 24">
+              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z" />
+            </svg>
+            Generando video... (puede tardar 1-3 min)
+          </>
+        ) : (
+          '🗣️ Crear Video Parlante'
+        )}
+      </button>
+      {error && <p className="text-red-400 text-center text-sm">{error}</p>}
+      {result && (
+        <div className="mt-6 space-y-4">
+          <div className="flex items-center justify-between">
+            <h4 className="text-white font-semibold text-lg">✨ Video Generado</h4>
+            <a
+              href={result}
+              download={`lip-sync-${Date.now()}.mp4`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="px-4 py-2 bg-gradient-to-r from-pink-600 to-rose-600 text-white rounded-xl text-sm font-medium hover:from-pink-500 hover:to-rose-500 transition-all flex items-center gap-2"
+            >
+              💾 Descargar
+            </a>
+          </div>
+          <div className="bg-gray-800/50 rounded-2xl p-4 flex justify-center">
+            <video
+              src={result}
+              controls
+              autoPlay
+              className="max-h-96 rounded-xl"
+            />
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ── Main AiTools Component ─────────────────────────────────────────────
 export default function AiTools() {
   const [selectedTool, setSelectedTool] = useState<ToolId | null>(null);
@@ -664,6 +833,8 @@ export default function AiTools() {
         return <SketchToImageTool />;
       case 'retouch':
         return <RetouchTool />;
+      case 'lip-sync':
+        return <LipSyncTool />;
       default:
         return null;
     }

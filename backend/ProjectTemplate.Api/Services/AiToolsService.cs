@@ -12,11 +12,13 @@ public class AiToolsService
     private readonly IConfiguration _config;
     private readonly ILogger<AiToolsService> _logger;
     private readonly HttpClient _httpClient;
+    private readonly TtsService _ttsService;
 
-    public AiToolsService(IConfiguration config, ILogger<AiToolsService> logger)
+    public AiToolsService(IConfiguration config, ILogger<AiToolsService> logger, TtsService ttsService)
     {
         _config = config;
         _logger = logger;
+        _ttsService = ttsService;
         _httpClient = new HttpClient { Timeout = TimeSpan.FromMinutes(5) };
     }
 
@@ -28,10 +30,16 @@ public class AiToolsService
         return falKey;
     }
 
-    private void SetAuthHeader(string falKey)
+    /// <summary>
+    /// Send a request with per-request auth headers (thread-safe).
+    /// Never use _httpClient.DefaultRequestHeaders — it's not thread-safe for singletons.
+    /// </summary>
+    private async Task<HttpResponseMessage> SendFalRequest(HttpMethod method, string url, string falKey, HttpContent? content = null)
     {
-        _httpClient.DefaultRequestHeaders.Clear();
-        _httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Key", falKey);
+        using var request = new HttpRequestMessage(method, url);
+        request.Headers.Authorization = new AuthenticationHeaderValue("Key", falKey);
+        if (content != null) request.Content = content;
+        return await _httpClient.SendAsync(request);
     }
 
     /// <summary>
@@ -64,10 +72,9 @@ public class AiToolsService
         _logger.LogInformation("Uploading {Size} bytes to FAL storage as {FileName}", imageBytes.Length, fileName);
 
         // Step 1: Initiate upload to get presigned URL
-        SetAuthHeader(falKey);
         var initiateBody = new { file_name = fileName, content_type = mimeType };
-        var initiateResponse = await _httpClient.PostAsync(
-            "https://rest.alpha.fal.ai/storage/upload/initiate",
+        var initiateResponse = await SendFalRequest(
+            HttpMethod.Post, "https://rest.alpha.fal.ai/storage/upload/initiate", falKey,
             new StringContent(JsonSerializer.Serialize(initiateBody), Encoding.UTF8, "application/json")
         );
 
@@ -86,15 +93,17 @@ public class AiToolsService
         // Step 2: Upload the actual file bytes to the upload URL
         var uploadUrl = initiateResult.UploadUrl ?? initiateResult.FileUrl;
 
+        // PUT the bytes to the presigned URL (no auth header needed for presigned URLs)
         using var uploadContent = new ByteArrayContent(imageBytes);
         uploadContent.Headers.ContentType = new MediaTypeHeaderValue(mimeType);
-
         var uploadResponse = await _httpClient.PutAsync(uploadUrl, uploadContent);
 
         if (!uploadResponse.IsSuccessStatusCode)
         {
             _logger.LogWarning("PUT upload failed ({Status}), trying POST...", uploadResponse.StatusCode);
-            uploadResponse = await _httpClient.PostAsync(uploadUrl, uploadContent);
+            using var uploadContent2 = new ByteArrayContent(imageBytes);
+            uploadContent2.Headers.ContentType = new MediaTypeHeaderValue(mimeType);
+            uploadResponse = await _httpClient.PostAsync(uploadUrl, uploadContent2);
         }
 
         _logger.LogInformation("FAL storage upload result: {Status}", uploadResponse.StatusCode);
@@ -130,11 +139,9 @@ public class AiToolsService
     /// </summary>
     private async Task<string> CallFalApiWithQueue(string model, object requestBody, string falKey, int maxWaitSeconds = 120)
     {
-        SetAuthHeader(falKey);
-
         // Submit to queue
-        var submitResponse = await _httpClient.PostAsync(
-            $"https://queue.fal.run/{model}",
+        var submitResponse = await SendFalRequest(
+            HttpMethod.Post, $"https://queue.fal.run/{model}", falKey,
             new StringContent(JsonSerializer.Serialize(requestBody), Encoding.UTF8, "application/json")
         );
 
@@ -160,8 +167,7 @@ public class AiToolsService
         {
             await Task.Delay(3000);
 
-            SetAuthHeader(falKey);
-            var statusResponse = await _httpClient.GetAsync(queueResult.StatusUrl);
+            var statusResponse = await SendFalRequest(HttpMethod.Get, queueResult.StatusUrl, falKey);
             var statusBody = await statusResponse.Content.ReadAsStringAsync();
             var status = JsonSerializer.Deserialize<FalQueueStatus>(statusBody);
 
@@ -171,9 +177,8 @@ public class AiToolsService
             if (status?.Status == "COMPLETED")
             {
                 // Get the result
-                SetAuthHeader(falKey);
                 var responseUrl = queueResult.ResponseUrl ?? queueResult.StatusUrl.Replace("/status", "");
-                var resultResponse = await _httpClient.GetAsync(responseUrl);
+                var resultResponse = await SendFalRequest(HttpMethod.Get, responseUrl, falKey);
                 var resultBody = await resultResponse.Content.ReadAsStringAsync();
 
                 if (!resultResponse.IsSuccessStatusCode)
@@ -197,10 +202,8 @@ public class AiToolsService
     /// </summary>
     private async Task<string> CallFalApiDirect(string model, object requestBody, string falKey)
     {
-        SetAuthHeader(falKey);
-
-        var response = await _httpClient.PostAsync(
-            $"https://fal.run/{model}",
+        var response = await SendFalRequest(
+            HttpMethod.Post, $"https://fal.run/{model}", falKey,
             new StringContent(JsonSerializer.Serialize(requestBody), Encoding.UTF8, "application/json")
         );
 
@@ -370,6 +373,85 @@ public class AiToolsService
             ?? throw new Exception("No se pudo obtener la imagen retocada.");
 
         return new AiToolResult { Url = retouchUrl, Type = "image" };
+    }
+
+    /// <summary>
+    /// Upload raw bytes to FAL storage (for audio files, etc.)
+    /// </summary>
+    private async Task<string> UploadBytesToFalStorage(byte[] data, string mimeType, string extension, string falKey)
+    {
+        var fileName = $"upload-{Guid.NewGuid():N}.{extension}";
+        _logger.LogInformation("Uploading {Size} bytes ({Mime}) to FAL storage as {FileName}", data.Length, mimeType, fileName);
+
+        var initiateBody = new { file_name = fileName, content_type = mimeType };
+        var initiateResponse = await SendFalRequest(
+            HttpMethod.Post, "https://rest.alpha.fal.ai/storage/upload/initiate", falKey,
+            new StringContent(JsonSerializer.Serialize(initiateBody), Encoding.UTF8, "application/json")
+        );
+
+        var initiateJson = await initiateResponse.Content.ReadAsStringAsync();
+        if (!initiateResponse.IsSuccessStatusCode)
+            throw new Exception($"Error al subir archivo a storage: {initiateResponse.StatusCode}");
+
+        var initiateResult = JsonSerializer.Deserialize<FalStorageInitiate>(initiateJson);
+        if (string.IsNullOrEmpty(initiateResult?.FileUrl))
+            throw new Exception("No se pudo obtener URL de storage.");
+
+        var uploadUrl = initiateResult.UploadUrl ?? initiateResult.FileUrl;
+        using var uploadContent = new ByteArrayContent(data);
+        uploadContent.Headers.ContentType = new MediaTypeHeaderValue(mimeType);
+        var uploadResponse = await _httpClient.PutAsync(uploadUrl, uploadContent);
+
+        if (!uploadResponse.IsSuccessStatusCode)
+        {
+            _logger.LogWarning("PUT upload failed ({Status}), trying POST...", uploadResponse.StatusCode);
+            using var uploadContent2 = new ByteArrayContent(data);
+            uploadContent2.Headers.ContentType = new MediaTypeHeaderValue(mimeType);
+            uploadResponse = await _httpClient.PostAsync(uploadUrl, uploadContent2);
+        }
+
+        _logger.LogInformation("FAL storage upload result: {Status}", uploadResponse.StatusCode);
+        return initiateResult.FileUrl;
+    }
+
+    /// <summary>
+    /// Lip-sync: Generate a talking head video from an image + text.
+    /// Uses OpenAI TTS for audio generation, then VEED Fabric 1.0 for animation.
+    /// </summary>
+    public async Task<AiToolResult> LipSyncAsync(LipSyncRequest request)
+    {
+        var falKey = GetFalKey();
+        _logger.LogInformation("Lip-sync: Generating talking video for text ({Length} chars)", request.Text.Length);
+
+        // Step 1: Ensure image URL
+        var imageUrl = await EnsureImageUrl(request.ImageUrl, falKey);
+        _logger.LogInformation("Lip-sync: Image URL ready");
+
+        // Step 2: Generate speech audio via OpenAI TTS
+        _logger.LogInformation("Lip-sync: Generating speech audio via TTS ({Lang}, {Gender})", request.Language, request.Gender);
+        var audioBytes = await _ttsService.GenerateSpeechAsync(request.Text, request.Language, request.Gender);
+        _logger.LogInformation("Lip-sync: Audio generated ({Size} bytes)", audioBytes.Length);
+
+        // Step 3: Upload audio to FAL storage
+        var audioUrl = await UploadBytesToFalStorage(audioBytes, "audio/mpeg", "mp3", falKey);
+        _logger.LogInformation("Lip-sync: Audio uploaded to FAL storage: {Url}", audioUrl[..Math.Min(80, audioUrl.Length)]);
+
+        // Step 4: Call VEED Fabric 1.0 via queue API
+        var requestBody = new
+        {
+            image_url = imageUrl,
+            audio_url = audioUrl,
+            resolution = "720p"
+        };
+
+        var responseBody = await CallFalApiWithQueue("veed/fabric-1.0", requestBody, falKey, maxWaitSeconds: 300);
+
+        var result = JsonSerializer.Deserialize<FalVideoResponse>(responseBody);
+        var videoUrl = result?.Video?.Url
+            ?? throw new Exception("No se pudo generar el video de lip-sync.");
+
+        _logger.LogInformation("Lip-sync: Video generated successfully");
+        return new AiToolResult { Url = videoUrl, Type = "video" };
     }
 }
 

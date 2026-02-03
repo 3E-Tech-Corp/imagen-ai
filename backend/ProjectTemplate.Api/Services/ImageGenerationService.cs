@@ -27,6 +27,17 @@ public class ImageGenerationService
         return falKey;
     }
 
+    /// <summary>
+    /// Send a request with per-request auth headers (thread-safe).
+    /// </summary>
+    private async Task<HttpResponseMessage> SendFalRequest(HttpMethod method, string url, string falKey, HttpContent? content = null)
+    {
+        using var request = new HttpRequestMessage(method, url);
+        request.Headers.Authorization = new AuthenticationHeaderValue("Key", falKey);
+        if (content != null) request.Content = content;
+        return await _httpClient.SendAsync(request);
+    }
+
     public async Task<GeneratedMedia> GenerateImageAsync(GenerationRequest request)
     {
         var falKey = GetFalKey();
@@ -88,11 +99,8 @@ public class ImageGenerationService
             _logger.LogInformation("Image prompt: {Prompt}", fullPrompt);
         }
 
-        _httpClient.DefaultRequestHeaders.Clear();
-        _httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Key", falKey);
-
-        var response = await _httpClient.PostAsync(
-            endpoint,
+        var response = await SendFalRequest(
+            HttpMethod.Post, endpoint, falKey,
             new StringContent(requestJson, Encoding.UTF8, "application/json")
         );
 
@@ -186,13 +194,10 @@ public class ImageGenerationService
             }
         }
 
-        _httpClient.DefaultRequestHeaders.Clear();
-        _httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Key", falKey);
-
         // Step 1: Submit to queue
         _logger.LogInformation("Submitting video to FAL queue ({Model})...", modelEndpoint);
-        var submitResponse = await _httpClient.PostAsync(
-            $"https://queue.fal.run/{modelEndpoint}",
+        var submitResponse = await SendFalRequest(
+            HttpMethod.Post, $"https://queue.fal.run/{modelEndpoint}", falKey,
             new StringContent(JsonSerializer.Serialize(requestBody), Encoding.UTF8, "application/json")
         );
 
@@ -225,10 +230,7 @@ public class ImageGenerationService
         {
             await Task.Delay(pollInterval);
 
-            _httpClient.DefaultRequestHeaders.Clear();
-            _httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Key", falKey);
-
-            var pollResponse = await _httpClient.GetAsync(statusUrl);
+            var pollResponse = await SendFalRequest(HttpMethod.Get, statusUrl, falKey);
             var pollBody = await pollResponse.Content.ReadAsStringAsync();
 
             var status = JsonSerializer.Deserialize<FalQueueStatus>(pollBody);
@@ -242,11 +244,8 @@ public class ImageGenerationService
                 _logger.LogInformation("Video generation completed after {Seconds}s", elapsed);
 
                 // Step 3: Get the result from response URL
-                _httpClient.DefaultRequestHeaders.Clear();
-                _httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Key", falKey);
-
                 var resultUrl = responseUrl ?? statusUrl.Replace("/status", "");
-                var resultResponse = await _httpClient.GetAsync(resultUrl);
+                var resultResponse = await SendFalRequest(HttpMethod.Get, resultUrl, falKey);
                 var resultBody = await resultResponse.Content.ReadAsStringAsync();
 
                 _logger.LogInformation("FAL result response: {Body}", resultBody[..Math.Min(500, resultBody.Length)]);

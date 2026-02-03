@@ -125,6 +125,85 @@ export default function App() {
     }
   }, [activeTab]);
 
+  const handleCreateVideoFromImage = useCallback(async (imageUrl: string) => {
+    const tempId = crypto.randomUUID();
+    const placeholderResult: GenerationResult = {
+      id: tempId,
+      prompt: '🎬 Video desde imagen generada',
+      type: 'video',
+      style: 'cinematic',
+      url: '',
+      createdAt: new Date().toISOString(),
+      status: 'generating',
+    };
+
+    setResults((prev) => [placeholderResult, ...prev]);
+
+    try {
+      const result = await api.post<GenerationResult>('/generation/create', {
+        prompt: 'Animate this image with smooth natural motion, cinematic quality',
+        type: 'video',
+        style: 'cinematic',
+        videoSpeed: 'fast',
+        referenceImages: [imageUrl],
+      }, 30_000);
+
+      if (result.status === 'generating') {
+        const jobId = result.id;
+        setResults((prev) =>
+          prev.map((r) => (r.id === tempId ? { ...result, id: tempId, status: 'generating' as const } : r))
+        );
+
+        const pollInterval = setInterval(async () => {
+          try {
+            const statusResult = await api.get<GenerationResult>(`/generation/job/${jobId}`);
+            if (statusResult.status === 'completed') {
+              clearInterval(pollInterval);
+              setResults((prev) =>
+                prev.map((r) =>
+                  r.id === tempId ? { ...statusResult, id: statusResult.id, status: 'completed' as const } : r
+                )
+              );
+            } else if (statusResult.status === 'failed') {
+              clearInterval(pollInterval);
+              setResults((prev) =>
+                prev.map((r) =>
+                  r.id === tempId ? { ...r, status: 'failed' as const, error: statusResult.error || 'Error al generar el video' } : r
+                )
+              );
+            }
+          } catch {
+            // Keep polling on network errors
+          }
+        }, 5000);
+
+        setTimeout(() => {
+          clearInterval(pollInterval);
+          setResults((prev) =>
+            prev.map((r) =>
+              r.id === tempId && r.status === 'generating'
+                ? { ...r, status: 'failed' as const, error: 'La generación del video tardó demasiado.' }
+                : r
+            )
+          );
+        }, 600_000);
+        return;
+      }
+
+      setResults((prev) =>
+        prev.map((r) => (r.id === tempId ? { ...result, status: 'completed' as const } : r))
+      );
+    } catch (err) {
+      setResults((prev) =>
+        prev.map((r) =>
+          r.id === tempId
+            ? { ...r, status: 'failed' as const, error: err instanceof Error ? err.message : 'Error desconocido' }
+            : r
+        )
+      );
+    }
+  }, []);
+
   const handleVoiceGenerate = useCallback(async (text: string, language: string, gender: VoiceGender) => {
     const tempId = crypto.randomUUID();
     const placeholderResult: GenerationResult = {
@@ -189,6 +268,7 @@ export default function App() {
               results={results}
               onEditVideo={(r) => setEditingVideo(r)}
               onEditImage={(r) => setEditingImage(r)}
+              onCreateVideo={handleCreateVideoFromImage}
             />
           </section>
         )}

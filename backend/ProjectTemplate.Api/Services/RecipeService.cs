@@ -91,13 +91,11 @@ Reglas:
             response_format = new { type = "json_object" }
         };
 
-        _httpClient.DefaultRequestHeaders.Clear();
-        _httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", apiKey);
+        using var httpRequest = new HttpRequestMessage(HttpMethod.Post, "https://api.openai.com/v1/chat/completions");
+        httpRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", apiKey);
+        httpRequest.Content = new StringContent(JsonSerializer.Serialize(requestBody), Encoding.UTF8, "application/json");
 
-        var response = await _httpClient.PostAsync(
-            "https://api.openai.com/v1/chat/completions",
-            new StringContent(JsonSerializer.Serialize(requestBody), Encoding.UTF8, "application/json")
-        );
+        var response = await _httpClient.SendAsync(httpRequest);
 
         var responseBody = await response.Content.ReadAsStringAsync();
 
@@ -183,13 +181,11 @@ Todo el texto DEBE estar en español.";
             response_format = new { type = "json_object" }
         };
 
-        _httpClient.DefaultRequestHeaders.Clear();
-        _httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", apiKey);
+        using var httpRequest2 = new HttpRequestMessage(HttpMethod.Post, "https://api.openai.com/v1/chat/completions");
+        httpRequest2.Headers.Authorization = new AuthenticationHeaderValue("Bearer", apiKey);
+        httpRequest2.Content = new StringContent(JsonSerializer.Serialize(requestBody), Encoding.UTF8, "application/json");
 
-        var response = await _httpClient.PostAsync(
-            "https://api.openai.com/v1/chat/completions",
-            new StringContent(JsonSerializer.Serialize(requestBody), Encoding.UTF8, "application/json")
-        );
+        var response = await _httpClient.SendAsync(httpRequest2);
 
         var responseBody = await response.Content.ReadAsStringAsync();
 

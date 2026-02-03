@@ -5,9 +5,10 @@ interface GalleryProps {
   results: GenerationResult[];
   onEditVideo?: (result: GenerationResult) => void;
   onEditImage?: (result: GenerationResult) => void;
+  onCreateVideo?: (imageUrl: string) => void;
 }
 
-export default function Gallery({ results, onEditVideo, onEditImage }: GalleryProps) {
+export default function Gallery({ results, onEditVideo, onEditImage, onCreateVideo }: GalleryProps) {
   if (results.length === 0) {
     return (
       <div className="text-center py-20">
@@ -53,6 +54,7 @@ export default function Gallery({ results, onEditVideo, onEditImage }: GalleryPr
             key={result.id}
             result={result}
             onEdit={getEditHandler(result)}
+            onCreateVideo={result.type === 'image' && result.status === 'completed' ? onCreateVideo : undefined}
           />
         ))}
       </div>
