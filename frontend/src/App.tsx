@@ -1,5 +1,6 @@
 import { useState, useCallback } from 'react';
 import Header from './components/Header';
+import StatusBanner from './components/StatusBanner';
 import PromptInput, { GenerationOptions } from './components/PromptInput';
 import VoiceGenerator from './components/VoiceGenerator';
 import VideoEditor from './components/VideoEditor';
@@ -103,6 +104,7 @@ export default function App() {
       <Header activeTab={activeTab} onTabChange={setActiveTab} />
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
+        <StatusBanner />
         <section className="max-w-3xl mx-auto">
           {activeTab === 'voice' ? (
             <VoiceGenerator onGenerate={handleVoiceGenerate} isGenerating={isGenerating} />

@@ -28,6 +28,24 @@ public class GenerationController : ControllerBase
         _env = env;
     }
 
+    [HttpGet("status")]
+    public IActionResult Status()
+    {
+        var config = HttpContext.RequestServices.GetRequiredService<IConfiguration>();
+        var falKey = config["FalAi:ApiKey"];
+        var openaiKey = config["OpenAI:ApiKey"];
+
+        return Ok(new
+        {
+            imageGeneration = !string.IsNullOrEmpty(falKey) && !falKey.Contains("__"),
+            videoGeneration = !string.IsNullOrEmpty(falKey) && !falKey.Contains("__"),
+            voiceGeneration = !string.IsNullOrEmpty(openaiKey) && !openaiKey.Contains("__"),
+            message = (string.IsNullOrEmpty(falKey) || falKey.Contains("__"))
+                ? "API keys pendientes de configurar"
+                : "Todo listo"
+        });
+    }
+
     [HttpPost("create")]
     public async Task<IActionResult> Create([FromBody] GenerationRequest request)
     {

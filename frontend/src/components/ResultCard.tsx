@@ -36,12 +36,20 @@ export default function ResultCard({ result, onEdit }: ResultCardProps) {
   }
 
   if (result.status === 'failed') {
+    const isConfigError = result.error?.includes('API key') || result.error?.includes('not configured');
     return (
       <div className="bg-gray-800 rounded-2xl border border-red-900/50 overflow-hidden">
         <div className={`${result.type === 'voice' ? 'aspect-[2/1]' : 'aspect-square'} bg-red-900/20 flex items-center justify-center`}>
           <div className="text-center p-6">
-            <p className="text-4xl mb-3">❌</p>
-            <p className="text-red-400 text-sm">{result.error || 'Error al generar'}</p>
+            <p className="text-4xl mb-3">{isConfigError ? '🔧' : '❌'}</p>
+            <p className="text-red-400 text-sm font-medium mb-2">
+              {isConfigError ? 'Configuración pendiente' : 'Error al generar'}
+            </p>
+            <p className="text-red-400/70 text-xs">
+              {isConfigError
+                ? 'Las API keys necesitan ser configuradas en el servidor para activar la generación.'
+                : (result.error || 'Intenta de nuevo')}
+            </p>
           </div>
         </div>
         <div className="p-4">
