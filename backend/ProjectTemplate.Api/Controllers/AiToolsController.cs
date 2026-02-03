@@ -5,7 +5,7 @@ using ProjectTemplate.Api.Services;
 namespace ProjectTemplate.Api.Controllers;
 
 [ApiController]
-[Route("api/ai-tools")]
+[Route("ai-tools")]
 public class AiToolsController : ControllerBase
 {
     private readonly AiToolsService _aiToolsService;

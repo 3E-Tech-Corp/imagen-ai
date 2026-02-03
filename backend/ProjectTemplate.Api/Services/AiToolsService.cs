@@ -34,6 +34,77 @@ public class AiToolsService
     }
 
     /// <summary>
+    /// If the image is a base64 data URL, upload it to FAL storage first.
+    /// FAL.ai APIs work better with actual URLs than with large base64 strings.
+    /// </summary>
+    private async Task<string> EnsureImageUrl(string imageUrlOrBase64, string falKey)
+    {
+        if (string.IsNullOrEmpty(imageUrlOrBase64))
+            throw new ArgumentException("Se requiere una imagen.");
+
+        // If it's already a URL, return as-is
+        if (imageUrlOrBase64.StartsWith("http://") || imageUrlOrBase64.StartsWith("https://"))
+            return imageUrlOrBase64;
+
+        // If it's a data URL, upload to FAL storage
+        if (imageUrlOrBase64.StartsWith("data:"))
+        {
+            _logger.LogInformation("Uploading base64 image to FAL storage...");
+
+            // Extract the base64 content and mime type
+            var parts = imageUrlOrBase64.Split(',');
+            if (parts.Length != 2)
+                throw new ArgumentException("Formato de imagen inválido.");
+
+            var mimeMatch = System.Text.RegularExpressions.Regex.Match(parts[0], @"data:([^;]+)");
+            var mimeType = mimeMatch.Success ? mimeMatch.Groups[1].Value : "image/png";
+            var base64Data = parts[1];
+            var imageBytes = Convert.FromBase64String(base64Data);
+
+            var ext = mimeType switch
+            {
+                "image/jpeg" => "jpg",
+                "image/png" => "png",
+                "image/webp" => "webp",
+                "image/gif" => "gif",
+                _ => "png"
+            };
+
+            SetAuthHeader(falKey);
+
+            var content = new ByteArrayContent(imageBytes);
+            content.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue(mimeType);
+
+            var uploadResponse = await _httpClient.PostAsync(
+                $"https://fal.run/fal-ai/flux/dev?fal_file=true",
+                content
+            );
+
+            // Try alternative upload method - just use the data URL directly
+            // Some FAL endpoints accept data URLs
+            if (!uploadResponse.IsSuccessStatusCode)
+            {
+                _logger.LogWarning("FAL storage upload failed, using data URL directly");
+                return imageUrlOrBase64;
+            }
+
+            var uploadBody = await uploadResponse.Content.ReadAsStringAsync();
+            var uploadResult = JsonSerializer.Deserialize<FalUploadResult>(uploadBody);
+
+            if (!string.IsNullOrEmpty(uploadResult?.Url))
+            {
+                _logger.LogInformation("Image uploaded to FAL: {Url}", uploadResult.Url);
+                return uploadResult.Url;
+            }
+
+            // Fallback to data URL
+            return imageUrlOrBase64;
+        }
+
+        return imageUrlOrBase64;
+    }
+
+    /// <summary>
     /// Remove background from an image using fal-ai/birefnet
     /// </summary>
     public async Task<AiToolResult> RemoveBackgroundAsync(RemoveBackgroundRequest request)
@@ -41,9 +112,11 @@ public class AiToolsService
         var falKey = GetFalKey();
         _logger.LogInformation("Removing background from image");
 
+        var imageUrl = await EnsureImageUrl(request.ImageUrl, falKey);
+
         var requestBody = new
         {
-            image_url = request.ImageUrl,
+            image_url = imageUrl,
             model = "General Use (Light)",
             operating_resolution = "1024x1024",
             output_format = "png"
@@ -67,10 +140,10 @@ public class AiToolsService
         _logger.LogInformation("Remove background response: {Body}", responseBody[..Math.Min(500, responseBody.Length)]);
 
         var result = JsonSerializer.Deserialize<FalBirefnetResponse>(responseBody);
-        var imageUrl = result?.Image?.Url
+        var resultImageUrl = result?.Image?.Url
             ?? throw new Exception("No se pudo obtener la imagen sin fondo.");
 
-        return new AiToolResult { Url = imageUrl, Type = "image" };
+        return new AiToolResult { Url = resultImageUrl, Type = "image" };
     }
 
     /// <summary>
@@ -81,9 +154,11 @@ public class AiToolsService
         var falKey = GetFalKey();
         _logger.LogInformation("Upscaling image with scale {Scale}x", request.Scale);
 
+        var imageUrl = await EnsureImageUrl(request.ImageUrl, falKey);
+
         var requestBody = new
         {
-            image_url = request.ImageUrl,
+            image_url = imageUrl,
             upscaling_factor = request.Scale
         };
 
@@ -105,10 +180,10 @@ public class AiToolsService
         _logger.LogInformation("Upscale response: {Body}", responseBody[..Math.Min(500, responseBody.Length)]);
 
         var result = JsonSerializer.Deserialize<FalUpscaleResponse>(responseBody);
-        var imageUrl = result?.Image?.Url
+        var resultImageUrl = result?.Image?.Url
             ?? throw new Exception("No se pudo obtener la imagen mejorada.");
 
-        return new AiToolResult { Url = imageUrl, Type = "image" };
+        return new AiToolResult { Url = resultImageUrl, Type = "image" };
     }
 
     /// <summary>
@@ -119,9 +194,11 @@ public class AiToolsService
         var falKey = GetFalKey();
         _logger.LogInformation("Reimagining image with prompt: {Prompt}, strength: {Strength}", request.Prompt, request.Strength);
 
+        var imageUrl = await EnsureImageUrl(request.ImageUrl, falKey);
+
         var requestBody = new
         {
-            image_url = request.ImageUrl,
+            image_url = imageUrl,
             prompt = request.Prompt,
             strength = request.Strength,
             num_inference_steps = 28,
@@ -148,10 +225,10 @@ public class AiToolsService
         _logger.LogInformation("Reimagine response: {Body}", responseBody[..Math.Min(500, responseBody.Length)]);
 
         var result = JsonSerializer.Deserialize<FalImageResponse>(responseBody);
-        var imageUrl = result?.Images?.FirstOrDefault()?.Url
+        var resultImageUrl = result?.Images?.FirstOrDefault()?.Url
             ?? throw new Exception("No se pudo obtener la imagen reimaginada.");
 
-        return new AiToolResult { Url = imageUrl, Type = "image" };
+        return new AiToolResult { Url = resultImageUrl, Type = "image" };
     }
 
     /// <summary>
@@ -160,6 +237,7 @@ public class AiToolsService
     public async Task<AiToolResult> SketchToImageAsync(SketchToImageRequest request)
     {
         var falKey = GetFalKey();
+        var imageUrl = await EnsureImageUrl(request.ImageUrl, falKey);
 
         var stylePrompt = request.Style switch
         {
@@ -176,7 +254,7 @@ public class AiToolsService
 
         var requestBody = new
         {
-            image_url = request.ImageUrl,
+            image_url = imageUrl,
             prompt = fullPrompt,
             strength = 0.85,
             num_inference_steps = 28,
@@ -203,10 +281,10 @@ public class AiToolsService
         _logger.LogInformation("Sketch-to-image response: {Body}", responseBody[..Math.Min(500, responseBody.Length)]);
 
         var result = JsonSerializer.Deserialize<FalImageResponse>(responseBody);
-        var imageUrl = result?.Images?.FirstOrDefault()?.Url
+        var resultImageUrl = result?.Images?.FirstOrDefault()?.Url
             ?? throw new Exception("No se pudo obtener la imagen del boceto.");
 
-        return new AiToolResult { Url = imageUrl, Type = "image" };
+        return new AiToolResult { Url = resultImageUrl, Type = "image" };
     }
 
     /// <summary>
@@ -217,9 +295,11 @@ public class AiToolsService
         var falKey = GetFalKey();
         _logger.LogInformation("Retouching image with prompt: {Prompt}", request.Prompt);
 
+        var imageUrl = await EnsureImageUrl(request.ImageUrl, falKey);
+
         var requestBody = new
         {
-            image_url = request.ImageUrl,
+            image_url = imageUrl,
             prompt = request.Prompt,
             strength = 0.4,
             num_inference_steps = 28,
@@ -246,10 +326,10 @@ public class AiToolsService
         _logger.LogInformation("Retouch response: {Body}", responseBody[..Math.Min(500, responseBody.Length)]);
 
         var result = JsonSerializer.Deserialize<FalImageResponse>(responseBody);
-        var imageUrl = result?.Images?.FirstOrDefault()?.Url
+        var retouchUrl = result?.Images?.FirstOrDefault()?.Url
             ?? throw new Exception("No se pudo obtener la imagen retocada.");
 
-        return new AiToolResult { Url = imageUrl, Type = "image" };
+        return new AiToolResult { Url = retouchUrl, Type = "image" };
     }
 }
 
@@ -264,6 +344,12 @@ public class FalUpscaleResponse
 {
     [JsonPropertyName("image")]
     public FalSingleImage? Image { get; set; }
+}
+
+public class FalUploadResult
+{
+    [JsonPropertyName("url")]
+    public string? Url { get; set; }
 }
 
 public class FalSingleImage
