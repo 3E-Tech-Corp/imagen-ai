@@ -54,6 +54,16 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
               🎙️ Voces
             </button>
             <button
+              onClick={() => onTabChange('tools')}
+              className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+                activeTab === 'tools'
+                  ? 'bg-amber-600 text-white shadow-lg shadow-amber-600/25'
+                  : 'text-gray-400 hover:text-white hover:bg-gray-700'
+              }`}
+            >
+              🛠️ Herramientas
+            </button>
+            <button
               onClick={() => onTabChange('recipe')}
               className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
                 activeTab === 'recipe'

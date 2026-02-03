@@ -77,6 +77,7 @@ builder.Services.AddSingleton<TtsService>();
 builder.Services.AddSingleton<VideoEditService>();
 builder.Services.AddSingleton<RecipeService>();
 builder.Services.AddSingleton<ProjectService>();
+builder.Services.AddSingleton<AiToolsService>();
 
 var app = builder.Build();
 
