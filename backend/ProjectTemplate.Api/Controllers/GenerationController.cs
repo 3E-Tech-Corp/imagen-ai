@@ -11,6 +11,7 @@ public class GenerationController : ControllerBase
     private readonly ImageGenerationService _generationService;
     private readonly TtsService _ttsService;
     private readonly VideoEditService _videoEditService;
+    private readonly VideoJobService _videoJobService;
     private readonly ILogger<GenerationController> _logger;
     private readonly IWebHostEnvironment _env;
 
@@ -18,12 +19,14 @@ public class GenerationController : ControllerBase
         ImageGenerationService generationService,
         TtsService ttsService,
         VideoEditService videoEditService,
+        VideoJobService videoJobService,
         ILogger<GenerationController> logger,
         IWebHostEnvironment env)
     {
         _generationService = generationService;
         _ttsService = ttsService;
         _videoEditService = videoEditService;
+        _videoJobService = videoJobService;
         _logger = logger;
         _env = env;
     }
@@ -52,9 +55,81 @@ public class GenerationController : ControllerBase
         if (string.IsNullOrWhiteSpace(request.Prompt))
             return BadRequest(new { message = "Por favor escribe una descripción de lo que quieres crear." });
 
+        // Video generation is async (fire-and-forget + polling) to avoid Cloudflare proxy timeout
+        if (request.Type == "video")
+        {
+            return await CreateVideoAsync(request);
+        }
+
+        // Image generation is synchronous (fast, ~10 seconds)
+        return await CreateImageAsync(request);
+    }
+
+#pragma warning disable CS1998
+    private async Task<IActionResult> CreateVideoAsync(GenerationRequest request)
+#pragma warning restore CS1998
+    {
+        try
+        {
+            // Validate API key before starting background job
+            var config = HttpContext.RequestServices.GetRequiredService<IConfiguration>();
+            var falKey = config["FalAi:ApiKey"];
+            if (string.IsNullOrEmpty(falKey) || falKey.Contains("__"))
+            {
+                return StatusCode(503, new { message = "El servicio de generación necesita ser configurado. Contacta al administrador." });
+            }
+
+            _logger.LogInformation("Starting async video generation for prompt: {Prompt}", request.Prompt);
+
+            // Create a job and return immediately
+            var job = _videoJobService.CreateJob(request.Prompt, request.Style);
+
+            // Fire-and-forget: generate video in background
+            _ = Task.Run(async () =>
+            {
+                try
+                {
+                    var media = await _generationService.GenerateVideoAsync(request);
+                    _videoJobService.CompleteJob(job.Id, media.Url);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "Background video generation failed for job {JobId}", job.Id);
+                    var errorMessage = ex switch
+                    {
+                        InvalidOperationException => "El servicio de generación no está configurado.",
+                        TaskCanceledException => "La generación del video tardó demasiado.",
+                        _ => "No se pudo generar el video. Intenta con una descripción diferente."
+                    };
+                    _videoJobService.FailJob(job.Id, errorMessage);
+                }
+            });
+
+            // Return immediately with "generating" status
+            var response = new GenerationResponse
+            {
+                Id = job.Id,
+                Prompt = request.Prompt,
+                Type = "video",
+                Style = request.Style,
+                Url = "",
+                CreatedAt = job.CreatedAt,
+                Status = "generating"
+            };
+
+            return Ok(response);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to start video generation for prompt: {Prompt}", request.Prompt);
+            return StatusCode(500, new { message = "No se pudo iniciar la generación del video. Intenta de nuevo." });
+        }
+    }
+
+    private async Task<IActionResult> CreateImageAsync(GenerationRequest request)
+    {
         // For images: retry up to 2 times on transient failures
-        // For videos: no retry (they use async queue and handle their own retries)
-        var maxRetries = request.Type == "video" ? 0 : 2;
+        var maxRetries = 2;
         Exception? lastError = null;
 
         for (int attempt = 0; attempt <= maxRetries; attempt++)
@@ -64,17 +139,9 @@ public class GenerationController : ControllerBase
                 if (attempt > 0)
                     _logger.LogInformation("Retry attempt {Attempt} for prompt: {Prompt}", attempt, request.Prompt);
                 else
-                    _logger.LogInformation("Generating {Type} with prompt: {Prompt}", request.Type, request.Prompt);
+                    _logger.LogInformation("Generating image with prompt: {Prompt}", request.Prompt);
 
-                GeneratedMedia media;
-                if (request.Type == "video")
-                {
-                    media = await _generationService.GenerateVideoAsync(request);
-                }
-                else
-                {
-                    media = await _generationService.GenerateImageAsync(request);
-                }
+                var media = await _generationService.GenerateImageAsync(request);
 
                 var response = new GenerationResponse
                 {
@@ -96,10 +163,8 @@ public class GenerationController : ControllerBase
             }
             catch (TaskCanceledException ex)
             {
-                _logger.LogError(ex, "Request timeout for {Type}", request.Type);
-                return StatusCode(504, new { message = request.Type == "video"
-                    ? "La generación del video tardó demasiado. Los videos pueden tardar hasta 5 minutos. Intenta de nuevo."
-                    : "La generación tardó demasiado. Intenta de nuevo." });
+                _logger.LogError(ex, "Request timeout for image");
+                return StatusCode(504, new { message = "La generación tardó demasiado. Intenta de nuevo." });
             }
             catch (HttpRequestException ex)
             {
@@ -118,13 +183,29 @@ public class GenerationController : ControllerBase
         }
 
         _logger.LogError(lastError, "All generation attempts failed for prompt: {Prompt}", request.Prompt);
+        return StatusCode(500, new { message = "No se pudo generar la imagen. Intenta de nuevo con una descripción diferente." });
+    }
 
-        // Return user-friendly error (never expose technical details)
-        var friendlyMessage = request.Type == "video"
-            ? "No se pudo generar el video. Intenta con una descripción diferente o más simple."
-            : "No se pudo generar la imagen. Intenta de nuevo con una descripción diferente.";
+    [HttpGet("job/{jobId}")]
+    public IActionResult GetJobStatus(string jobId)
+    {
+        var job = _videoJobService.GetJob(jobId);
+        if (job == null)
+            return NotFound(new { message = "Trabajo de generación no encontrado." });
 
-        return StatusCode(500, new { message = friendlyMessage });
+        var response = new GenerationResponse
+        {
+            Id = job.Id,
+            Prompt = job.Prompt,
+            Type = job.Type,
+            Style = job.Style,
+            Url = job.Url ?? "",
+            CreatedAt = job.CreatedAt,
+            Status = job.Status,
+            Error = job.Error
+        };
+
+        return Ok(response);
     }
 
     [HttpPost("voice")]

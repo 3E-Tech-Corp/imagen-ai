@@ -35,6 +35,8 @@ export default function App() {
     setIsGenerating(true);
 
     try {
+      // Use shorter timeout for videos since they return immediately with "generating" status
+      const timeoutMs = activeTab === 'video' ? 30_000 : undefined;
       const result = await api.post<GenerationResult>('/generation/create', {
         prompt,
         type: activeTab,
@@ -48,8 +50,65 @@ export default function App() {
         negativePrompt: options.negativePrompt,
         videoSpeed: options.videoSpeed || 'fast',
         referenceImages: options.referenceImages,
-      });
+      }, timeoutMs);
 
+      // For videos: the backend returns immediately with status "generating"
+      // We need to poll for completion
+      if (activeTab === 'video' && result.status === 'generating') {
+        const jobId = result.id;
+
+        // Update placeholder with server-assigned job ID
+        setResults((prev) =>
+          prev.map((r) => (r.id === tempId ? { ...result, id: tempId, status: 'generating' as const } : r))
+        );
+        setIsGenerating(false);
+
+        // Poll for video completion every 5 seconds
+        const pollInterval = setInterval(async () => {
+          try {
+            const statusResult = await api.get<GenerationResult>(`/generation/job/${jobId}`);
+
+            if (statusResult.status === 'completed') {
+              clearInterval(pollInterval);
+              setResults((prev) =>
+                prev.map((r) =>
+                  r.id === tempId
+                    ? { ...statusResult, id: statusResult.id, status: 'completed' as const }
+                    : r
+                )
+              );
+            } else if (statusResult.status === 'failed') {
+              clearInterval(pollInterval);
+              setResults((prev) =>
+                prev.map((r) =>
+                  r.id === tempId
+                    ? { ...r, status: 'failed' as const, error: statusResult.error || 'Error al generar el video' }
+                    : r
+                )
+              );
+            }
+            // else still "generating", keep polling
+          } catch {
+            // Network error during poll — keep trying, don't kill the interval
+          }
+        }, 5000);
+
+        // Safety: stop polling after 10 minutes max
+        setTimeout(() => {
+          clearInterval(pollInterval);
+          setResults((prev) =>
+            prev.map((r) =>
+              r.id === tempId && r.status === 'generating'
+                ? { ...r, status: 'failed' as const, error: 'La generación del video tardó demasiado. Intenta de nuevo.' }
+                : r
+            )
+          );
+        }, 600_000);
+
+        return; // Don't update results below — the poll handles it
+      }
+
+      // For images: update immediately (synchronous response)
       setResults((prev) =>
         prev.map((r) => (r.id === tempId ? { ...result, status: 'completed' as const } : r))
       );

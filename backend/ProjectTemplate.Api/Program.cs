@@ -78,6 +78,7 @@ builder.Services.AddSingleton<VideoEditService>();
 builder.Services.AddSingleton<RecipeService>();
 builder.Services.AddSingleton<ProjectService>();
 builder.Services.AddSingleton<AiToolsService>();
+builder.Services.AddSingleton<VideoJobService>();
 
 var app = builder.Build();
 
