@@ -83,7 +83,8 @@ public class ImageGenerationService
 
     /// <summary>
     /// Generate video using FAL's async queue API to avoid timeouts.
-    /// Flow: submit job → poll status → get result URL.
+    /// Flow: submit job → poll status URL → get result from response URL.
+    /// Uses the URLs returned by FAL (not hardcoded) for reliability.
     /// </summary>
     public async Task<GeneratedMedia> GenerateVideoAsync(GenerationRequest request)
     {
@@ -113,6 +114,8 @@ public class ImageGenerationService
         );
 
         var submitBody = await submitResponse.Content.ReadAsStringAsync();
+        _logger.LogInformation("FAL queue submit response: {Body}", submitBody);
+
         if (!submitResponse.IsSuccessStatusCode)
         {
             _logger.LogError("FAL queue submit error: {Status} {Body}", submitResponse.StatusCode, submitBody);
@@ -121,12 +124,16 @@ public class ImageGenerationService
 
         var queueResult = JsonSerializer.Deserialize<FalQueueResponse>(submitBody);
         var requestId = queueResult?.RequestId;
-        if (string.IsNullOrEmpty(requestId))
+        var statusUrl = queueResult?.StatusUrl;
+        var responseUrl = queueResult?.ResponseUrl;
+
+        if (string.IsNullOrEmpty(requestId) || string.IsNullOrEmpty(statusUrl))
             throw new Exception("No se pudo iniciar la generación de video.");
 
-        _logger.LogInformation("Video queued with request_id: {RequestId}", requestId);
+        _logger.LogInformation("Video queued: request_id={RequestId}, status_url={StatusUrl}, response_url={ResponseUrl}",
+            requestId, statusUrl, responseUrl);
 
-        // Step 2: Poll for completion (max ~8 minutes)
+        // Step 2: Poll status URL for completion (max ~8 minutes)
         var maxWait = TimeSpan.FromMinutes(8);
         var pollInterval = TimeSpan.FromSeconds(5);
         var startTime = DateTime.UtcNow;
@@ -138,28 +145,29 @@ public class ImageGenerationService
             _httpClient.DefaultRequestHeaders.Clear();
             _httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Key", falKey);
 
-            var statusResponse = await _httpClient.GetAsync(
-                $"https://queue.fal.run/fal-ai/kling-video/v1/standard/text-to-video/requests/{requestId}/status"
-            );
+            var pollResponse = await _httpClient.GetAsync(statusUrl);
+            var pollBody = await pollResponse.Content.ReadAsStringAsync();
 
-            var statusBody = await statusResponse.Content.ReadAsStringAsync();
-            _logger.LogDebug("Queue status: {Body}", statusBody);
+            var status = JsonSerializer.Deserialize<FalQueueStatus>(pollBody);
+            var elapsed = (DateTime.UtcNow - startTime).TotalSeconds;
 
-            var status = JsonSerializer.Deserialize<FalQueueStatus>(statusBody);
+            _logger.LogInformation("Video status after {Elapsed}s: {Status} (queue_position: {Pos})",
+                elapsed, status?.Status ?? "unknown", status?.QueuePosition);
 
             if (status?.Status == "COMPLETED")
             {
-                _logger.LogInformation("Video generation completed after {Seconds}s", (DateTime.UtcNow - startTime).TotalSeconds);
+                _logger.LogInformation("Video generation completed after {Seconds}s", elapsed);
 
-                // Step 3: Get the result
+                // Step 3: Get the result from response URL
                 _httpClient.DefaultRequestHeaders.Clear();
                 _httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Key", falKey);
 
-                var resultResponse = await _httpClient.GetAsync(
-                    $"https://queue.fal.run/fal-ai/kling-video/v1/standard/text-to-video/requests/{requestId}"
-                );
-
+                var resultUrl = responseUrl ?? statusUrl.Replace("/status", "");
+                var resultResponse = await _httpClient.GetAsync(resultUrl);
                 var resultBody = await resultResponse.Content.ReadAsStringAsync();
+
+                _logger.LogInformation("FAL result response: {Body}", resultBody[..Math.Min(500, resultBody.Length)]);
+
                 if (!resultResponse.IsSuccessStatusCode)
                 {
                     _logger.LogError("FAL result fetch error: {Status} {Body}", resultResponse.StatusCode, resultBody);
@@ -175,14 +183,11 @@ public class ImageGenerationService
 
             if (status?.Status == "FAILED")
             {
-                _logger.LogError("Video generation failed: {Body}", statusBody);
+                _logger.LogError("Video generation failed after {Elapsed}s: {Body}", elapsed, pollBody);
                 throw new Exception("La generación de video falló. Intenta con una descripción diferente.");
             }
 
             // IN_QUEUE or IN_PROGRESS — keep polling
-            var elapsed = (DateTime.UtcNow - startTime).TotalSeconds;
-            _logger.LogInformation("Video still processing... ({Elapsed}s elapsed, status: {Status})",
-                elapsed, status?.Status ?? "unknown");
         }
 
         throw new Exception("La generación de video tardó demasiado. Intenta con una descripción más simple.");
@@ -226,6 +231,12 @@ public class FalQueueResponse
 
     [JsonPropertyName("status_url")]
     public string? StatusUrl { get; set; }
+
+    [JsonPropertyName("response_url")]
+    public string? ResponseUrl { get; set; }
+
+    [JsonPropertyName("cancel_url")]
+    public string? CancelUrl { get; set; }
 }
 
 public class FalQueueStatus
