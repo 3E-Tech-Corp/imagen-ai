@@ -82,9 +82,9 @@ public class ImageGenerationService
     }
 
     /// <summary>
-    /// Generate video using FAL's async queue API to avoid timeouts.
-    /// Flow: submit job → poll status URL → get result from response URL.
-    /// Uses the URLs returned by FAL (not hardcoded) for reliability.
+    /// Generate video using FAL's async queue API.
+    /// Fast mode: MiniMax Hailuo Live (~30-60s)
+    /// Quality mode: Kling (~3-5min)
     /// </summary>
     public async Task<GeneratedMedia> GenerateVideoAsync(GenerationRequest request)
     {
@@ -96,20 +96,42 @@ public class ImageGenerationService
 
         _logger.LogInformation("Video prompt: {Prompt}", fullPrompt);
 
-        var requestBody = new
+        // Choose model based on speed preference
+        var useFastModel = request.VideoSpeed != "quality";
+        string modelEndpoint;
+        object requestBody;
+
+        if (useFastModel)
         {
-            prompt = fullPrompt,
-            duration = "5",
-            aspect_ratio = "16:9"
-        };
+            // MiniMax Hailuo Live — fast, ~30-60 seconds
+            modelEndpoint = "fal-ai/minimax-video/video-01-live";
+            requestBody = new
+            {
+                prompt = fullPrompt,
+                prompt_optimizer = true
+            };
+            _logger.LogInformation("Using FAST model: MiniMax Hailuo Live");
+        }
+        else
+        {
+            // Kling — high quality, 3-5 minutes
+            modelEndpoint = "fal-ai/kling-video/v1/standard/text-to-video";
+            requestBody = new
+            {
+                prompt = fullPrompt,
+                duration = "5",
+                aspect_ratio = "16:9"
+            };
+            _logger.LogInformation("Using QUALITY model: Kling");
+        }
 
         _httpClient.DefaultRequestHeaders.Clear();
         _httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Key", falKey);
 
         // Step 1: Submit to queue
-        _logger.LogInformation("Submitting video to FAL queue...");
+        _logger.LogInformation("Submitting video to FAL queue ({Model})...", modelEndpoint);
         var submitResponse = await _httpClient.PostAsync(
-            "https://queue.fal.run/fal-ai/kling-video/v1/standard/text-to-video",
+            $"https://queue.fal.run/{modelEndpoint}",
             new StringContent(JsonSerializer.Serialize(requestBody), Encoding.UTF8, "application/json")
         );
 

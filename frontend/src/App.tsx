@@ -45,6 +45,7 @@ export default function App() {
         quality: options.quality,
         useCase: options.useCase,
         negativePrompt: options.negativePrompt,
+        videoSpeed: options.videoSpeed || 'fast',
       });
 
       setResults((prev) =>

@@ -19,6 +19,7 @@ export interface GenerationOptions {
   quality: string;
   useCase: string;
   negativePrompt?: string;
+  videoSpeed?: string;
 }
 
 type SectionId = 'style' | 'scene' | 'mood' | 'quality' | 'advanced';
@@ -33,6 +34,7 @@ export default function PromptInput({ type, onGenerate, isGenerating }: PromptIn
   const [quality, setQuality] = useState('ultra');
   const [useCase, setUseCase] = useState('any');
   const [negativePrompt, setNegativePrompt] = useState('');
+  const [videoSpeed, setVideoSpeed] = useState('fast');
   const [expandedSection, setExpandedSection] = useState<SectionId | null>('style');
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -41,6 +43,7 @@ export default function PromptInput({ type, onGenerate, isGenerating }: PromptIn
     onGenerate(prompt.trim(), {
       style, environment, timePeriod, lighting, emotion, quality, useCase,
       negativePrompt: negativePrompt.trim() || undefined,
+      videoSpeed: type === 'video' ? videoSpeed : undefined,
     });
   };
 
@@ -251,17 +254,48 @@ export default function PromptInput({ type, onGenerate, isGenerating }: PromptIn
                 )}
 
                 {section.id === 'advanced' && (
-                  <div>
-                    <label className="block text-xs text-gray-400 mb-1">
-                      Prompt negativo (lo que NO quieres ver)
-                    </label>
-                    <input
-                      type="text"
-                      value={negativePrompt}
-                      onChange={(e) => setNegativePrompt(e.target.value)}
-                      placeholder="Ej: borroso, baja calidad, deformado, texto, marca de agua..."
-                      className="w-full px-4 py-3 bg-gray-900 border border-gray-700 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-violet-500 text-sm"
-                    />
+                  <div className="space-y-3">
+                    {type === 'video' && (
+                      <div>
+                        <p className="text-gray-400 text-xs mb-2">⚡ Velocidad de generación</p>
+                        <div className="flex gap-2">
+                          <button
+                            type="button"
+                            onClick={() => setVideoSpeed('fast')}
+                            className={`flex-1 px-3 py-3 rounded-xl text-sm font-medium transition-all ${
+                              videoSpeed === 'fast'
+                                ? 'bg-green-600 text-white shadow-lg shadow-green-600/25'
+                                : 'bg-gray-900 text-gray-400 border border-gray-700 hover:border-green-500'
+                            }`}
+                          >
+                            ⚡ Rápido (~30-60 seg)
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setVideoSpeed('quality')}
+                            className={`flex-1 px-3 py-3 rounded-xl text-sm font-medium transition-all ${
+                              videoSpeed === 'quality'
+                                ? 'bg-purple-600 text-white shadow-lg shadow-purple-600/25'
+                                : 'bg-gray-900 text-gray-400 border border-gray-700 hover:border-purple-500'
+                            }`}
+                          >
+                            🎬 Alta Calidad (~3-5 min)
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                    <div>
+                      <label className="block text-xs text-gray-400 mb-1">
+                        Prompt negativo (lo que NO quieres ver)
+                      </label>
+                      <input
+                        type="text"
+                        value={negativePrompt}
+                        onChange={(e) => setNegativePrompt(e.target.value)}
+                        placeholder="Ej: borroso, baja calidad, deformado, texto, marca de agua..."
+                        className="w-full px-4 py-3 bg-gray-900 border border-gray-700 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-violet-500 text-sm"
+                      />
+                    </div>
                   </div>
                 )}
               </div>
