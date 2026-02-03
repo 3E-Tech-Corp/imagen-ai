@@ -3,6 +3,7 @@ import Header from './components/Header';
 import PromptInput from './components/PromptInput';
 import VoiceGenerator from './components/VoiceGenerator';
 import VideoEditor from './components/VideoEditor';
+import ImageEditor from './components/ImageEditor';
 import Gallery from './components/Gallery';
 import { GenerationType, GenerationResult, ImageStyle, VoiceGender } from './types';
 import api from './services/api';
@@ -12,6 +13,7 @@ export default function App() {
   const [results, setResults] = useState<GenerationResult[]>([]);
   const [isGenerating, setIsGenerating] = useState(false);
   const [editingVideo, setEditingVideo] = useState<GenerationResult | null>(null);
+  const [editingImage, setEditingImage] = useState<GenerationResult | null>(null);
 
   const handleGenerate = useCallback(async (prompt: string, style: ImageStyle, negativePrompt?: string) => {
     const tempId = crypto.randomUUID();
@@ -94,9 +96,12 @@ export default function App() {
     setEditingVideo(result);
   }, []);
 
+  const handleEditImage = useCallback((result: GenerationResult) => {
+    setEditingImage(result);
+  }, []);
+
   const handleVideoSaved = useCallback((newUrl: string) => {
     if (editingVideo) {
-      // Add the edited video as a new result
       const newResult: GenerationResult = {
         id: crypto.randomUUID(),
         prompt: `✏️ Editado: ${editingVideo.prompt}`,
@@ -110,6 +115,10 @@ export default function App() {
     }
     setEditingVideo(null);
   }, [editingVideo]);
+
+  const handleImageSaved = useCallback((_newUrl: string) => {
+    setEditingImage(null);
+  }, []);
 
   return (
     <div className="min-h-screen bg-gray-950">
@@ -137,6 +146,7 @@ export default function App() {
           <Gallery
             results={results}
             onEditVideo={handleEditVideo}
+            onEditImage={handleEditImage}
           />
         </section>
       </main>
@@ -151,11 +161,21 @@ export default function App() {
         />
       )}
 
+      {/* Image Editor Modal */}
+      {editingImage && (
+        <ImageEditor
+          imageUrl={editingImage.url}
+          imageId={editingImage.id}
+          onClose={() => setEditingImage(null)}
+          onSaved={handleImageSaved}
+        />
+      )}
+
       {/* Footer */}
       <footer className="border-t border-gray-800 mt-12">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
           <p className="text-center text-gray-500 text-sm">
-            Imagen AI — Generación de imágenes, videos y voces con inteligencia artificial
+            Imagen AI — Generación y edición de imágenes, videos y voces con inteligencia artificial
           </p>
         </div>
       </footer>

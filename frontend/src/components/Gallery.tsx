@@ -4,9 +4,10 @@ import ResultCard from './ResultCard';
 interface GalleryProps {
   results: GenerationResult[];
   onEditVideo?: (result: GenerationResult) => void;
+  onEditImage?: (result: GenerationResult) => void;
 }
 
-export default function Gallery({ results, onEditVideo }: GalleryProps) {
+export default function Gallery({ results, onEditVideo, onEditImage }: GalleryProps) {
   if (results.length === 0) {
     return (
       <div className="text-center py-20">
@@ -20,18 +21,24 @@ export default function Gallery({ results, onEditVideo }: GalleryProps) {
         </p>
         <div className="mt-8 grid grid-cols-1 sm:grid-cols-3 gap-4 max-w-2xl mx-auto text-left">
           <div className="bg-gray-800/50 rounded-xl p-4 border border-gray-700/50">
-            <p className="text-sm text-gray-300">🖼️ <strong>Imágenes:</strong> Describe personas, animales, objetos con detalle.</p>
+            <p className="text-sm text-gray-300">🖼️ <strong>Imágenes:</strong> Genera y edita con filtros, texto y más.</p>
           </div>
           <div className="bg-gray-800/50 rounded-xl p-4 border border-gray-700/50">
-            <p className="text-sm text-gray-300">🎬 <strong>Videos:</strong> Genera videos y edítalos con texto, voz y filtros.</p>
+            <p className="text-sm text-gray-300">🎬 <strong>Videos:</strong> Genera, edita, agrega voz y texto.</p>
           </div>
           <div className="bg-gray-800/50 rounded-xl p-4 border border-gray-700/50">
-            <p className="text-sm text-gray-300">🎙️ <strong>Voces:</strong> Crea narración en 33+ idiomas, voz masculina o femenina.</p>
+            <p className="text-sm text-gray-300">🎙️ <strong>Voces:</strong> Narración en 33+ idiomas.</p>
           </div>
         </div>
       </div>
     );
   }
+
+  const getEditHandler = (result: GenerationResult) => {
+    if (result.type === 'video') return onEditVideo;
+    if (result.type === 'image') return onEditImage;
+    return undefined;
+  };
 
   return (
     <div>
@@ -45,7 +52,7 @@ export default function Gallery({ results, onEditVideo }: GalleryProps) {
           <ResultCard
             key={result.id}
             result={result}
-            onEdit={result.type === 'video' ? onEditVideo : undefined}
+            onEdit={getEditHandler(result)}
           />
         ))}
       </div>
