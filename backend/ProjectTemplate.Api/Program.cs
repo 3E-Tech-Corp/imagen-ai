@@ -121,10 +121,6 @@ using (var scope = app.Services.CreateScope())
                     );
                 END");
             app.Logger.LogInformation("Database migration completed successfully");
-
-            // Ensure project tables
-            var projectService = scope.ServiceProvider.GetRequiredService<ProjectService>();
-            await projectService.EnsureTablesAsync();
         }
         catch (Exception ex)
         {

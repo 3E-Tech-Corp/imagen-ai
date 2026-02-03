@@ -119,7 +119,7 @@ public class ProjectController : ControllerBase
     {
         try
         {
-            var deleted = await _projectService.RemoveItemAsync(itemId);
+            var deleted = await _projectService.RemoveItemAsync("", itemId);
             if (!deleted) return NotFound(new { message = "Item no encontrado." });
             return Ok(new { message = "Item eliminado." });
         }

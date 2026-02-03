@@ -1,185 +1,236 @@
-using Dapper;
-using Microsoft.Data.SqlClient;
+using System.Text.Json;
 using ProjectTemplate.Api.Models;
 
 namespace ProjectTemplate.Api.Services;
 
+/// <summary>
+/// File-based project storage. Uses JSON files — no database dependency.
+/// Projects stored in wwwroot/data/projects/
+/// </summary>
 public class ProjectService
 {
-    private readonly IConfiguration _config;
     private readonly ILogger<ProjectService> _logger;
+    private readonly string _dataDir;
+    private readonly JsonSerializerOptions _jsonOptions;
+    private static readonly SemaphoreSlim _lock = new(1, 1);
 
-    public ProjectService(IConfiguration config, ILogger<ProjectService> logger)
+    public ProjectService(ILogger<ProjectService> logger, IWebHostEnvironment env)
     {
-        _config = config;
         _logger = logger;
+        _dataDir = Path.Combine(env.ContentRootPath, "wwwroot", "data", "projects");
+        Directory.CreateDirectory(_dataDir);
+        _jsonOptions = new JsonSerializerOptions
+        {
+            WriteIndented = true,
+            PropertyNamingPolicy = JsonNamingPolicy.CamelCase
+        };
     }
 
-    private SqlConnection GetConnection()
+    private string ProjectFile(string id) => Path.Combine(_dataDir, $"{id}.json");
+
+    private async Task<ProjectDto?> ReadProjectAsync(string id)
     {
-        var connStr = _config.GetConnectionString("DefaultConnection");
-        return new SqlConnection(connStr);
+        var path = ProjectFile(id);
+        if (!File.Exists(path)) return null;
+        var json = await File.ReadAllTextAsync(path);
+        return JsonSerializer.Deserialize<ProjectDto>(json, _jsonOptions);
     }
 
-    public async Task EnsureTablesAsync()
+    private async Task WriteProjectAsync(ProjectDto project)
     {
-        try
-        {
-            using var conn = GetConnection();
-            await conn.OpenAsync();
-            await conn.ExecuteAsync(@"
-                IF NOT EXISTS (SELECT * FROM sys.tables WHERE name = 'Projects')
-                BEGIN
-                    CREATE TABLE Projects (
-                        Id NVARCHAR(50) PRIMARY KEY,
-                        Name NVARCHAR(200) NOT NULL,
-                        Description NVARCHAR(500) NULL,
-                        Category NVARCHAR(50) NOT NULL DEFAULT 'general',
-                        CoverUrl NVARCHAR(2000) NULL,
-                        CreatedAt DATETIME2 NOT NULL DEFAULT GETUTCDATE(),
-                        UpdatedAt DATETIME2 NOT NULL DEFAULT GETUTCDATE()
-                    );
-                END
-
-                IF NOT EXISTS (SELECT * FROM sys.tables WHERE name = 'ProjectItems')
-                BEGIN
-                    CREATE TABLE ProjectItems (
-                        Id NVARCHAR(50) PRIMARY KEY,
-                        ProjectId NVARCHAR(50) NOT NULL,
-                        Type NVARCHAR(20) NOT NULL,
-                        Prompt NVARCHAR(2000) NOT NULL DEFAULT '',
-                        Url NVARCHAR(2000) NOT NULL,
-                        ThumbnailUrl NVARCHAR(2000) NULL,
-                        Style NVARCHAR(50) NOT NULL DEFAULT '',
-                        Notes NVARCHAR(500) NULL,
-                        CreatedAt DATETIME2 NOT NULL DEFAULT GETUTCDATE(),
-                        CONSTRAINT FK_ProjectItems_Projects FOREIGN KEY (ProjectId) REFERENCES Projects(Id) ON DELETE CASCADE
-                    );
-                END");
-            _logger.LogInformation("Project tables ensured");
-        }
-        catch (Exception ex)
-        {
-            _logger.LogWarning(ex, "Failed to ensure project tables");
-        }
+        var json = JsonSerializer.Serialize(project, _jsonOptions);
+        await File.WriteAllTextAsync(ProjectFile(project.Id), json);
     }
 
     public async Task<List<ProjectDto>> GetAllProjectsAsync()
     {
-        using var conn = GetConnection();
-        await conn.OpenAsync();
+        await _lock.WaitAsync();
+        try
+        {
+            var projects = new List<ProjectDto>();
+            if (!Directory.Exists(_dataDir)) return projects;
 
-        var projects = (await conn.QueryAsync<ProjectDto>(@"
-            SELECT p.Id, p.Name, p.Description, p.Category, p.CoverUrl,
-                   FORMAT(p.CreatedAt, 'o') AS CreatedAt,
-                   FORMAT(p.UpdatedAt, 'o') AS UpdatedAt,
-                   (SELECT COUNT(*) FROM ProjectItems WHERE ProjectId = p.Id) AS ItemCount
-            FROM Projects p
-            ORDER BY p.UpdatedAt DESC")).ToList();
+            foreach (var file in Directory.GetFiles(_dataDir, "*.json"))
+            {
+                try
+                {
+                    var json = await File.ReadAllTextAsync(file);
+                    var project = JsonSerializer.Deserialize<ProjectDto>(json, _jsonOptions);
+                    if (project != null)
+                    {
+                        // Don't include items in list view
+                        project.ItemCount = project.Items?.Count ?? 0;
+                        if (project.Items?.Count > 0)
+                            project.CoverUrl = project.Items.FirstOrDefault(i => i.Type != "reference")?.Url
+                                ?? project.Items.FirstOrDefault()?.Url;
+                        project.Items = null;
+                        projects.Add(project);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "Failed to read project file: {File}", file);
+                }
+            }
 
-        return projects;
+            return projects.OrderByDescending(p => p.UpdatedAt).ToList();
+        }
+        finally { _lock.Release(); }
     }
 
     public async Task<ProjectDto?> GetProjectAsync(string id)
     {
-        using var conn = GetConnection();
-        await conn.OpenAsync();
-
-        var project = await conn.QueryFirstOrDefaultAsync<ProjectDto>(@"
-            SELECT p.Id, p.Name, p.Description, p.Category, p.CoverUrl,
-                   FORMAT(p.CreatedAt, 'o') AS CreatedAt,
-                   FORMAT(p.UpdatedAt, 'o') AS UpdatedAt,
-                   (SELECT COUNT(*) FROM ProjectItems WHERE ProjectId = p.Id) AS ItemCount
-            FROM Projects p WHERE p.Id = @Id", new { Id = id });
-
-        if (project == null) return null;
-
-        project.Items = (await conn.QueryAsync<ProjectItemDto>(@"
-            SELECT Id, ProjectId, Type, Prompt, Url, ThumbnailUrl, Style, Notes,
-                   FORMAT(CreatedAt, 'o') AS CreatedAt
-            FROM ProjectItems WHERE ProjectId = @Id
-            ORDER BY CreatedAt DESC", new { Id = id })).ToList();
-
-        return project;
+        await _lock.WaitAsync();
+        try
+        {
+            var project = await ReadProjectAsync(id);
+            if (project != null)
+            {
+                project.ItemCount = project.Items?.Count ?? 0;
+            }
+            return project;
+        }
+        finally { _lock.Release(); }
     }
 
     public async Task<ProjectDto> CreateProjectAsync(CreateProjectRequest request)
     {
-        var id = Guid.NewGuid().ToString();
-        using var conn = GetConnection();
-        await conn.OpenAsync();
+        await _lock.WaitAsync();
+        try
+        {
+            var project = new ProjectDto
+            {
+                Id = Guid.NewGuid().ToString(),
+                Name = request.Name,
+                Description = request.Description,
+                Category = request.Category,
+                CreatedAt = DateTime.UtcNow.ToString("o"),
+                UpdatedAt = DateTime.UtcNow.ToString("o"),
+                Items = new List<ProjectItemDto>(),
+                ItemCount = 0
+            };
 
-        await conn.ExecuteAsync(@"
-            INSERT INTO Projects (Id, Name, Description, Category)
-            VALUES (@Id, @Name, @Description, @Category)",
-            new { Id = id, request.Name, request.Description, request.Category });
-
-        return (await GetProjectAsync(id))!;
+            await WriteProjectAsync(project);
+            _logger.LogInformation("Created project: {Id} - {Name}", project.Id, project.Name);
+            return project;
+        }
+        finally { _lock.Release(); }
     }
 
     public async Task<ProjectDto?> UpdateProjectAsync(string id, CreateProjectRequest request)
     {
-        using var conn = GetConnection();
-        await conn.OpenAsync();
+        await _lock.WaitAsync();
+        try
+        {
+            var project = await ReadProjectAsync(id);
+            if (project == null) return null;
 
-        var rows = await conn.ExecuteAsync(@"
-            UPDATE Projects SET Name = @Name, Description = @Description,
-                   Category = @Category, UpdatedAt = GETUTCDATE()
-            WHERE Id = @Id",
-            new { Id = id, request.Name, request.Description, request.Category });
+            project.Name = request.Name;
+            project.Description = request.Description;
+            project.Category = request.Category;
+            project.UpdatedAt = DateTime.UtcNow.ToString("o");
 
-        return rows > 0 ? await GetProjectAsync(id) : null;
+            await WriteProjectAsync(project);
+            return project;
+        }
+        finally { _lock.Release(); }
     }
 
     public async Task<bool> DeleteProjectAsync(string id)
     {
-        using var conn = GetConnection();
-        await conn.OpenAsync();
-        var rows = await conn.ExecuteAsync("DELETE FROM Projects WHERE Id = @Id", new { Id = id });
-        return rows > 0;
+        await _lock.WaitAsync();
+        try
+        {
+            var path = ProjectFile(id);
+            if (!File.Exists(path)) return false;
+            File.Delete(path);
+
+            // Also delete reference images
+            var refDir = Path.Combine(Directory.GetParent(_dataDir)!.Parent!.FullName, "references", id);
+            if (Directory.Exists(refDir))
+                Directory.Delete(refDir, true);
+
+            return true;
+        }
+        finally { _lock.Release(); }
     }
 
     public async Task<ProjectItemDto> AddItemAsync(AddItemToProjectRequest request)
     {
-        var id = Guid.NewGuid().ToString();
-        using var conn = GetConnection();
-        await conn.OpenAsync();
-
-        await conn.ExecuteAsync(@"
-            INSERT INTO ProjectItems (Id, ProjectId, Type, Prompt, Url, ThumbnailUrl, Style, Notes)
-            VALUES (@Id, @ProjectId, @Type, @Prompt, @Url, @ThumbnailUrl, @Style, @Notes);
-            UPDATE Projects SET UpdatedAt = GETUTCDATE(),
-                   CoverUrl = COALESCE(CoverUrl, @Url)
-            WHERE Id = @ProjectId",
-            new { Id = id, request.ProjectId, request.Type, request.Prompt,
-                  request.Url, request.ThumbnailUrl, request.Style, request.Notes });
-
-        return new ProjectItemDto
+        await _lock.WaitAsync();
+        try
         {
-            Id = id,
-            ProjectId = request.ProjectId,
-            Type = request.Type,
-            Prompt = request.Prompt,
-            Url = request.Url,
-            ThumbnailUrl = request.ThumbnailUrl,
-            Style = request.Style,
-            Notes = request.Notes,
-            CreatedAt = DateTime.UtcNow.ToString("o")
-        };
+            var project = await ReadProjectAsync(request.ProjectId);
+            if (project == null) throw new Exception("Proyecto no encontrado");
+
+            project.Items ??= new List<ProjectItemDto>();
+
+            var item = new ProjectItemDto
+            {
+                Id = Guid.NewGuid().ToString(),
+                ProjectId = request.ProjectId,
+                Type = request.Type,
+                Prompt = request.Prompt,
+                Url = request.Url,
+                ThumbnailUrl = request.ThumbnailUrl,
+                Style = request.Style,
+                Notes = request.Notes,
+                CreatedAt = DateTime.UtcNow.ToString("o")
+            };
+
+            project.Items.Insert(0, item);
+            project.UpdatedAt = DateTime.UtcNow.ToString("o");
+            project.ItemCount = project.Items.Count;
+            project.CoverUrl ??= request.Url;
+
+            await WriteProjectAsync(project);
+            return item;
+        }
+        finally { _lock.Release(); }
     }
 
-    public async Task<bool> RemoveItemAsync(string itemId)
+    public async Task<bool> RemoveItemAsync(string projectId, string itemId)
     {
-        using var conn = GetConnection();
-        await conn.OpenAsync();
-        var rows = await conn.ExecuteAsync("DELETE FROM ProjectItems WHERE Id = @Id", new { Id = itemId });
-        return rows > 0;
+        await _lock.WaitAsync();
+        try
+        {
+            // Search all projects if projectId not given
+            if (string.IsNullOrEmpty(projectId))
+            {
+                foreach (var file in Directory.GetFiles(_dataDir, "*.json"))
+                {
+                    var json = await File.ReadAllTextAsync(file);
+                    var p = JsonSerializer.Deserialize<ProjectDto>(json, _jsonOptions);
+                    if (p?.Items?.Any(i => i.Id == itemId) == true)
+                    {
+                        p.Items.RemoveAll(i => i.Id == itemId);
+                        p.ItemCount = p.Items.Count;
+                        p.UpdatedAt = DateTime.UtcNow.ToString("o");
+                        await File.WriteAllTextAsync(file, JsonSerializer.Serialize(p, _jsonOptions));
+                        return true;
+                    }
+                }
+                return false;
+            }
+
+            var project = await ReadProjectAsync(projectId);
+            if (project?.Items == null) return false;
+
+            var removed = project.Items.RemoveAll(i => i.Id == itemId) > 0;
+            if (removed)
+            {
+                project.ItemCount = project.Items.Count;
+                project.UpdatedAt = DateTime.UtcNow.ToString("o");
+                await WriteProjectAsync(project);
+            }
+            return removed;
+        }
+        finally { _lock.Release(); }
     }
 
     public async Task<string> SaveReferenceImageAsync(string projectId, Stream imageStream, string fileName, string? notes)
     {
-        // Save to wwwroot/references/{projectId}/
-        var refDir = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", "references", projectId);
+        var refDir = Path.Combine(Directory.GetParent(_dataDir)!.Parent!.FullName, "references", projectId);
         Directory.CreateDirectory(refDir);
 
         var ext = Path.GetExtension(fileName);
@@ -194,7 +245,6 @@ public class ProjectService
 
         var url = $"/references/{projectId}/{savedName}";
 
-        // Add as project item
         await AddItemAsync(new AddItemToProjectRequest
         {
             ProjectId = projectId,
