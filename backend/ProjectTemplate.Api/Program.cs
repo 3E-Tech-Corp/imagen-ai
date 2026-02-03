@@ -72,6 +72,7 @@ builder.Services.AddCors(options =>
 // Register services
 builder.Services.AddSingleton<AuthService>();
 builder.Services.AddSingleton<StripeService>();
+builder.Services.AddSingleton<ImageGenerationService>();
 
 var app = builder.Build();
 

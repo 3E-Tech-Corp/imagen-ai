@@ -1,31 +1,38 @@
 # CLAUDE.md — Project Context for AI Assistants
 
 ## Project Overview
-This is a full-stack web application template: .NET 8 Web API backend + React/Vite/TypeScript frontend.
-It's designed for deployment to IIS with a self-hosted GitHub Actions runner.
+**Imagen AI** — A web application for generating images and videos using AI.
+Full-stack: .NET 8 Web API backend + React/Vite/TypeScript frontend, deployed to IIS.
 
 ## Architecture
 - **Backend:** `backend/ProjectTemplate.Api/` — .NET 8 minimal API with Dapper + SQL Server
-- **Frontend:** `frontend/` — React 18 + Vite + TypeScript + Tailwind CSS
+- **Frontend:** `frontend/` — React 18 + Vite + TypeScript + Tailwind CSS (single-page, no routing)
 - **Deployment:** GitHub Actions → self-hosted runner → IIS
+- **AI APIs:** FAL.ai (Flux for images, Kling for videos)
 
-## Key Patterns
-- Backend uses Dapper (not EF Core) for SQL Server access
-- JWT authentication with PBKDF2 password hashing
-- Auto-migration in Program.cs creates tables on startup
-- Frontend uses a typed fetch wrapper (`src/services/api.ts`)
-- AuthContext manages JWT tokens in localStorage
-- IIS deployment: frontend at site root (`WWW/`), backend as virtual app (`API/` → `/api`)
+## Key Features
+- Text-to-image generation (styles: photographic, realistic, artistic, anime, 3D render)
+- Text-to-video generation
+- Negative prompt support
+- No authentication required (public access)
 
-## Deployment
-- Physical paths: `F:\New_WWW\{site_name}\WWW` (frontend) + `F:\New_WWW\{site_name}\API` (backend)
-- Deploy script: `Deployment/deploy-iis.ps1` (stop pool → copy → start pool → health check)
-- Health endpoint: `GET /health` returns 200
+## Key Files
+- `frontend/src/App.tsx` — Main app component with generation logic
+- `frontend/src/components/PromptInput.tsx` — Prompt input with style selection
+- `frontend/src/components/Gallery.tsx` — Results gallery
+- `backend/.../Controllers/GenerationController.cs` — Generation API endpoint
+- `backend/.../Services/ImageGenerationService.cs` — FAL.ai integration
+
+## API Endpoints
+- `POST /api/generation/create` — Generate image or video (no auth required)
+  - Body: `{ prompt, type: "image"|"video", style, negativePrompt? }`
+- `GET /health` — Health check
 
 ## Configuration Placeholders (appsettings.json)
 - `__CONNECTION_STRING__` — SQL Server connection string
-- `__JWT_KEY__` — JWT signing key (min 32 characters)
+- `__JWT_KEY__` — JWT signing key (legacy, kept for auth service)
 - `__CORS_ORIGINS__` — Comma-separated allowed CORS origins
+- `__FAL_API_KEY__` — FAL.ai API key for image/video generation
 
 ## Build Commands
 ```bash
@@ -36,8 +43,6 @@ cd backend/ProjectTemplate.Api && dotnet build
 cd frontend && npm install && npm run build
 ```
 
-## Important Notes
-- The `/api/auth/setup` endpoint only works when 0 users exist (bootstrap admin)
-- All auth endpoints except login and setup require JWT Bearer token
-- Register endpoint requires Admin role
-- CORS origins are configured in appsettings, not hardcoded
+## Deployment
+- Physical paths: `F:\New_WWW\{site_name}\WWW` (frontend) + `F:\New_WWW\{site_name}\API` (backend)
+- Deploy: manual trigger via GitHub Actions `deploy.yml`

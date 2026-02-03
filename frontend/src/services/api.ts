@@ -1,11 +1,5 @@
 const API_BASE = '/api';
 
-interface ApiOptions {
-  method?: string;
-  body?: unknown;
-  headers?: Record<string, string>;
-}
-
 class ApiError extends Error {
   status: number;
   constructor(message: string, status: number) {
@@ -15,29 +9,12 @@ class ApiError extends Error {
   }
 }
 
-async function request<T>(endpoint: string, options: ApiOptions = {}): Promise<T> {
-  const token = localStorage.getItem('token');
-  const headers: Record<string, string> = {
-    'Content-Type': 'application/json',
-    ...options.headers,
-  };
-
-  if (token) {
-    headers['Authorization'] = `Bearer ${token}`;
-  }
-
+async function request<T>(endpoint: string, options: { method?: string; body?: unknown } = {}): Promise<T> {
   const response = await fetch(`${API_BASE}${endpoint}`, {
     method: options.method || 'GET',
-    headers,
+    headers: { 'Content-Type': 'application/json' },
     body: options.body ? JSON.stringify(options.body) : undefined,
   });
-
-  if (response.status === 401) {
-    localStorage.removeItem('token');
-    localStorage.removeItem('user');
-    window.location.href = '/login';
-    throw new ApiError('Unauthorized', 401);
-  }
 
   if (!response.ok) {
     const error = await response.json().catch(() => ({ message: 'Request failed' }));
@@ -47,11 +24,9 @@ async function request<T>(endpoint: string, options: ApiOptions = {}): Promise<T
   return response.json();
 }
 
-export const api = {
+const api = {
   get: <T>(endpoint: string) => request<T>(endpoint),
   post: <T>(endpoint: string, body: unknown) => request<T>(endpoint, { method: 'POST', body }),
-  put: <T>(endpoint: string, body: unknown) => request<T>(endpoint, { method: 'PUT', body }),
-  delete: <T>(endpoint: string) => request<T>(endpoint, { method: 'DELETE' }),
 };
 
 export { ApiError };

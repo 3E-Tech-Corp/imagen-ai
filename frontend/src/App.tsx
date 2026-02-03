@@ -1,61 +1,82 @@
-import { Routes, Route, Navigate } from 'react-router-dom';
-import { useAuth } from './contexts/AuthContext';
-import Layout from './components/Layout';
-import Login from './pages/Login';
-import Dashboard from './pages/Dashboard';
-import Pricing from './pages/Pricing';
-import Account from './pages/Account';
-import PaymentSuccess from './pages/PaymentSuccess';
-import PaymentCancel from './pages/PaymentCancel';
-
-function PrivateRoute({ children }: { children: React.ReactNode }) {
-  const { isAuthenticated, isLoading } = useAuth();
-
-  if (isLoading) {
-    return (
-      <div className="min-h-screen bg-gray-900 flex items-center justify-center">
-        <div className="text-white text-lg">Loading...</div>
-      </div>
-    );
-  }
-
-  return isAuthenticated ? <>{children}</> : <Navigate to="/login" />;
-}
+import { useState, useCallback } from 'react';
+import Header from './components/Header';
+import PromptInput from './components/PromptInput';
+import Gallery from './components/Gallery';
+import { GenerationType, GenerationResult, ImageStyle } from './types';
+import api from './services/api';
 
 export default function App() {
-  const { isAuthenticated, isLoading } = useAuth();
+  const [activeTab, setActiveTab] = useState<GenerationType>('image');
+  const [results, setResults] = useState<GenerationResult[]>([]);
+  const [isGenerating, setIsGenerating] = useState(false);
 
-  if (isLoading) {
-    return (
-      <div className="min-h-screen bg-gray-900 flex items-center justify-center">
-        <div className="text-white text-lg">Loading...</div>
-      </div>
-    );
-  }
+  const handleGenerate = useCallback(async (prompt: string, style: ImageStyle, negativePrompt?: string) => {
+    const tempId = crypto.randomUUID();
+    const placeholderResult: GenerationResult = {
+      id: tempId,
+      prompt,
+      type: activeTab,
+      style,
+      url: '',
+      createdAt: new Date().toISOString(),
+      status: 'generating',
+    };
+
+    setResults((prev) => [placeholderResult, ...prev]);
+    setIsGenerating(true);
+
+    try {
+      const result = await api.post<GenerationResult>('/generation/create', {
+        prompt,
+        type: activeTab,
+        style,
+        negativePrompt,
+      });
+
+      setResults((prev) =>
+        prev.map((r) => (r.id === tempId ? { ...result, status: 'completed' as const } : r))
+      );
+    } catch (err) {
+      setResults((prev) =>
+        prev.map((r) =>
+          r.id === tempId
+            ? { ...r, status: 'failed' as const, error: err instanceof Error ? err.message : 'Error desconocido' }
+            : r
+        )
+      );
+    } finally {
+      setIsGenerating(false);
+    }
+  }, [activeTab]);
 
   return (
-    <Routes>
-      <Route
-        path="/login"
-        element={isAuthenticated ? <Navigate to="/" /> : <Login />}
-      />
-      {/* Public routes */}
-      <Route path="/pricing" element={<Pricing />} />
-      {/* Auth-required routes */}
-      <Route path="/payment/success" element={<PrivateRoute><PaymentSuccess /></PrivateRoute>} />
-      <Route path="/payment/cancel" element={<PrivateRoute><PaymentCancel /></PrivateRoute>} />
-      <Route
-        path="/"
-        element={
-          <PrivateRoute>
-            <Layout />
-          </PrivateRoute>
-        }
-      >
-        <Route index element={<Dashboard />} />
-        <Route path="account" element={<Account />} />
-      </Route>
-      <Route path="*" element={<Navigate to="/" />} />
-    </Routes>
+    <div className="min-h-screen bg-gray-950">
+      <Header activeTab={activeTab} onTabChange={setActiveTab} />
+
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
+        {/* Prompt section */}
+        <section className="max-w-3xl mx-auto">
+          <PromptInput
+            type={activeTab}
+            onGenerate={handleGenerate}
+            isGenerating={isGenerating}
+          />
+        </section>
+
+        {/* Results gallery */}
+        <section>
+          <Gallery results={results} />
+        </section>
+      </main>
+
+      {/* Footer */}
+      <footer className="border-t border-gray-800 mt-12">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+          <p className="text-center text-gray-500 text-sm">
+            Imagen AI — Generación de imágenes y videos con inteligencia artificial
+          </p>
+        </div>
+      </footer>
+    </div>
   );
 }
