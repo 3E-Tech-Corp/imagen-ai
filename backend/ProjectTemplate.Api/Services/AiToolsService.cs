@@ -156,10 +156,10 @@ public class AiToolsService
 
         var imageUrl = await EnsureImageUrl(request.ImageUrl, falKey);
 
+        // aura-sr always upscales 4x, it only needs image_url
         var requestBody = new
         {
-            image_url = imageUrl,
-            upscaling_factor = request.Scale
+            image_url = imageUrl
         };
 
         SetAuthHeader(falKey);
