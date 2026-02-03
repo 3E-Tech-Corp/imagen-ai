@@ -78,28 +78,6 @@ jobs:
           name: deployment
           path: artifacts/deployment
 
-      - name: Write Production Config
-        shell: powershell
-        env:
-          FAL_API_KEY: ${{ secrets.FAL_API_KEY }}
-          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
-        run: |
-          $config = @{
-            FalAi = @{ ApiKey = $env:FAL_API_KEY }
-            OpenAI = @{ ApiKey = $env:OPENAI_API_KEY }
-          } | ConvertTo-Json -Depth 3
-          $configPath = "artifacts\backend\appsettings.Production.json"
-          # Merge with existing if present
-          if (Test-Path $configPath) {
-            $existing = Get-Content $configPath -Raw | ConvertFrom-Json
-            $existing | Add-Member -NotePropertyName "FalAi" -NotePropertyValue @{ ApiKey = $env:FAL_API_KEY } -Force
-            $existing | Add-Member -NotePropertyName "OpenAI" -NotePropertyValue @{ ApiKey = $env:OPENAI_API_KEY } -Force
-            $existing | ConvertTo-Json -Depth 5 | Set-Content $configPath
-          } else {
-            $config | Set-Content $configPath
-          }
-          Write-Host "Production config written with API keys"
-
       - name: Deploy to IIS
         shell: powershell
         run: |
@@ -107,3 +85,29 @@ jobs:
             -SiteName "${{ env.SITE_NAME }}" `
             -BackendSource "artifacts\backend" `
             -FrontendSource "artifacts\frontend"
+
+      - name: Configure API Keys
+        shell: powershell
+        env:
+          FAL_API_KEY: ${{ secrets.FAL_API_KEY }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+        run: |
+          $backendPath = "F:\New_WWW\${{ env.SITE_NAME }}\API"
+          $configPath = Join-Path $backendPath "appsettings.Production.json"
+          
+          if (Test-Path $configPath) {
+            $config = Get-Content $configPath -Raw | ConvertFrom-Json
+          } else {
+            $config = @{} | ConvertTo-Json | ConvertFrom-Json
+          }
+          
+          $config | Add-Member -NotePropertyName "FalAi" -NotePropertyValue @{ ApiKey = $env:FAL_API_KEY } -Force
+          $config | Add-Member -NotePropertyName "OpenAI" -NotePropertyValue @{ ApiKey = $env:OPENAI_API_KEY } -Force
+          $config | ConvertTo-Json -Depth 5 | Set-Content $configPath -Encoding UTF8
+          
+          Write-Host "API keys configured in production config"
+          
+          # Recycle app pool to pick up new config
+          Import-Module WebAdministration -ErrorAction Stop
+          Restart-WebAppPool -Name "${{ env.SITE_NAME }}"
+          Write-Host "App pool recycled"
