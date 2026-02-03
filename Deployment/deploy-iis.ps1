@@ -40,8 +40,29 @@ try {
     Write-Host "   Warning: Could not stop app pool - $_" -ForegroundColor Yellow
 }
 
-# Wait for pool to fully stop
-Start-Sleep -Seconds 3
+# Wait for pool to fully stop and release file locks
+$maxWait = 30
+$waited = 0
+Write-Host "   Waiting for file locks to release..." -ForegroundColor Gray
+Start-Sleep -Seconds 5
+$waited = 5
+
+$testFile = Join-Path $backendPath "ProjectTemplate.Api.dll"
+while ($waited -lt $maxWait) {
+    try {
+        if (Test-Path $testFile) {
+            [IO.File]::Open($testFile, 'Open', 'ReadWrite', 'None').Close()
+        }
+        Write-Host "   File locks released after ${waited}s" -ForegroundColor Green
+        break
+    } catch {
+        Start-Sleep -Seconds 2
+        $waited += 2
+    }
+}
+if ($waited -ge $maxWait) {
+    Write-Host "   Warning: File locks may still be held after ${maxWait}s" -ForegroundColor Yellow
+}
 
 # Backup current deployment
 Write-Host "`n>> Creating backup..." -ForegroundColor Yellow
@@ -100,7 +121,18 @@ foreach ($file in $preserveFiles) {
     }
 }
 
-Copy-Item -Path "$BackendSource\*" -Destination $backendPath -Recurse -Force
+# Copy with retry in case of lingering file locks
+$copyRetries = 3
+for ($i = 1; $i -le $copyRetries; $i++) {
+    try {
+        Copy-Item -Path "$BackendSource\*" -Destination $backendPath -Recurse -Force
+        break
+    } catch {
+        if ($i -eq $copyRetries) { throw }
+        Write-Host "   Copy attempt $i failed, retrying in 5s..." -ForegroundColor Yellow
+        Start-Sleep -Seconds 5
+    }
+}
 
 foreach ($file in $preserveFiles) {
     $src = Join-Path $tempDir $file
