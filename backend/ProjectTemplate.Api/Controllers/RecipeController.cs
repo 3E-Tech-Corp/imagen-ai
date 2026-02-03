@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Http.Features;
 using ProjectTemplate.Api.Services;
 
 namespace ProjectTemplate.Api.Controllers;
@@ -79,6 +80,36 @@ public class RecipeController : ControllerBase
         {
             _logger.LogError(ex, "Recipe generation failed");
             return StatusCode(500, new { message = "No se pudieron generar recetas. Intenta de nuevo." });
+        }
+    }
+
+    [HttpPost("analyze-meal")]
+    [RequestSizeLimit(10 * 1024 * 1024)] // 10MB
+    public async Task<IActionResult> AnalyzeMeal([FromBody] AnalyzeMealRequest request)
+    {
+        if (string.IsNullOrWhiteSpace(request.ImageBase64))
+            return BadRequest(new { message = "Por favor sube una foto de tu plato." });
+
+        try
+        {
+            _logger.LogInformation("Analyzing meal with goal: {Goal}", request.Goal);
+
+            var result = await _recipeService.AnalyzeMealAsync(
+                request.ImageBase64,
+                request.Goal ?? "lose-fat",
+                request.AdditionalInfo
+            );
+
+            return Ok(result);
+        }
+        catch (InvalidOperationException ex) when (ex.Message.Contains("API key") || ex.Message.Contains("not configured"))
+        {
+            return StatusCode(503, new { message = "El servicio de análisis necesita ser configurado. Contacta al administrador." });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Meal analysis failed");
+            return StatusCode(500, new { message = "No se pudo analizar el plato. Intenta de nuevo." });
         }
     }
 }

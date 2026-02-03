@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import api from '../services/api';
+import { STYLES } from '../types';
 
 interface ProjectItem {
   id: string;
@@ -11,6 +12,8 @@ interface ProjectItem {
   style: string;
   notes?: string;
   createdAt: string;
+  parentItemId?: string;
+  iterationNumber: number;
 }
 
 interface Project {
@@ -25,6 +28,12 @@ interface Project {
   items?: ProjectItem[];
 }
 
+interface IterationGroup {
+  parentId: string;
+  parent: ProjectItem;
+  variations: ProjectItem[];
+}
+
 export default function ProjectManager() {
   const [projects, setProjects] = useState<Project[]>([]);
   const [selectedProject, setSelectedProject] = useState<Project | null>(null);
@@ -34,6 +43,13 @@ export default function ProjectManager() {
   const [newCategory, setNewCategory] = useState('general');
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
+
+  // Recrear modal state
+  const [recreatingItem, setRecreatingItem] = useState<ProjectItem | null>(null);
+  const [recreatePrompt, setRecreatePrompt] = useState('');
+  const [recreateStyle, setRecreateStyle] = useState('photorealistic');
+  const [isRecreating, setIsRecreating] = useState(false);
+  const [recreateError, setRecreateError] = useState<string | null>(null);
 
   const loadProjects = useCallback(async () => {
     try {
@@ -86,7 +102,6 @@ export default function ProjectManager() {
       setProjects((prev) => prev.filter((p) => p.id !== id));
       if (selectedProject?.id === id) setSelectedProject(null);
     } catch {
-      // Try with a workaround
       try {
         await fetch(`/api/project/${id}`, { method: 'DELETE' });
         setProjects((prev) => prev.filter((p) => p.id !== id));
@@ -131,6 +146,108 @@ export default function ProjectManager() {
       setUploading(false);
       e.target.value = '';
     }
+  };
+
+  // Recrear functionality
+  const openRecreateModal = (item: ProjectItem) => {
+    setRecreatingItem(item);
+    setRecreatePrompt(item.prompt);
+    setRecreateStyle(item.style || 'photorealistic');
+    setRecreateError(null);
+  };
+
+  const closeRecreateModal = () => {
+    setRecreatingItem(null);
+    setRecreatePrompt('');
+    setRecreateStyle('photorealistic');
+    setRecreateError(null);
+  };
+
+  const handleRecreate = async () => {
+    if (!recreatingItem || !selectedProject || !recreatePrompt.trim()) return;
+
+    setIsRecreating(true);
+    setRecreateError(null);
+
+    try {
+      // Generate with the original item's URL as reference
+      const result = await api.post<{
+        id: string; prompt: string; type: string; style: string; url: string; createdAt: string;
+      }>('/generation/create', {
+        prompt: recreatePrompt.trim(),
+        type: recreatingItem.type === 'voice' ? 'image' : recreatingItem.type,
+        style: recreateStyle,
+        referenceImages: [recreatingItem.url],
+      });
+
+      // Find the parent — either the item itself (if original) or the item's parent
+      const parentId = recreatingItem.parentItemId || recreatingItem.id;
+
+      // Count existing iterations for this parent
+      const siblings = selectedProject.items?.filter(
+        (i) => i.parentItemId === parentId || i.id === parentId
+      ) || [];
+      const nextIteration = siblings.length + 1;
+
+      // Save to project
+      const newItem = await api.post<ProjectItem>(`/project/${selectedProject.id}/items`, {
+        projectId: selectedProject.id,
+        type: recreatingItem.type,
+        prompt: recreatePrompt.trim(),
+        url: result.url,
+        style: recreateStyle,
+        parentItemId: parentId,
+        iterationNumber: nextIteration,
+        notes: `Variación de "${recreatingItem.prompt.slice(0, 50)}..."`,
+      });
+
+      // Update local state
+      setSelectedProject((prev) => {
+        if (!prev) return prev;
+        return {
+          ...prev,
+          items: [...(prev.items || []), newItem],
+          itemCount: prev.itemCount + 1,
+        };
+      });
+
+      closeRecreateModal();
+    } catch (err) {
+      setRecreateError(
+        err instanceof Error ? err.message : 'Error al generar variación. Intenta de nuevo.'
+      );
+    } finally {
+      setIsRecreating(false);
+    }
+  };
+
+  // Group items by parent for iteration display
+  const groupItemsByIteration = (items: ProjectItem[]): { ungrouped: ProjectItem[]; groups: IterationGroup[] } => {
+    const creations = items.filter((i) => i.type !== 'reference');
+
+    // Find items that are parents (have children) or are children
+    const parentIds = new Set(creations.filter((i) => i.parentItemId).map((i) => i.parentItemId!));
+    const childItems = new Set(creations.filter((i) => i.parentItemId).map((i) => i.id));
+
+    const groups: IterationGroup[] = [];
+    const ungrouped: ProjectItem[] = [];
+
+    // Build groups
+    for (const item of creations) {
+      if (parentIds.has(item.id)) {
+        // This item is a parent
+        const variations = creations
+          .filter((i) => i.parentItemId === item.id)
+          .sort((a, b) => (a.iterationNumber || 0) - (b.iterationNumber || 0));
+        groups.push({ parentId: item.id, parent: item, variations });
+      } else if (!childItems.has(item.id) && !item.parentItemId) {
+        // Standalone item (no parent, no children)
+        ungrouped.push(item);
+      }
+      // Skip items that are children — they're shown in their parent's group
+    }
+
+    return { ungrouped, groups };
   };
 
   // Project list view
@@ -274,6 +391,7 @@ export default function ProjectManager() {
   // Project detail view
   const references = selectedProject.items?.filter((i) => i.type === 'reference') || [];
   const creations = selectedProject.items?.filter((i) => i.type !== 'reference') || [];
+  const { ungrouped, groups } = groupItemsByIteration(creations);
 
   return (
     <div className="space-y-6">
@@ -347,50 +465,266 @@ export default function ProjectManager() {
             Genera imágenes o videos y guárdalos aquí desde la galería
           </p>
         ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            {creations.map((item) => (
-              <div key={item.id} className="bg-gray-800 rounded-2xl border border-gray-700 overflow-hidden group">
-                <div className="aspect-square relative overflow-hidden">
-                  {item.type === 'video' ? (
-                    <video src={item.url} controls className="w-full h-full object-cover" />
-                  ) : item.type === 'voice' ? (
-                    <div className="w-full h-full bg-gradient-to-br from-emerald-900/30 to-teal-900/30 flex items-center justify-center">
-                      <div className="text-center p-4">
-                        <span className="text-4xl">🎙️</span>
-                        <audio controls className="w-full mt-3" style={{ height: '32px' }}>
-                          <source src={item.url} type="audio/mpeg" />
-                        </audio>
-                      </div>
-                    </div>
-                  ) : (
-                    <img src={item.url} alt={item.prompt} className="w-full h-full object-cover" />
-                  )}
-                  <button
-                    onClick={() => removeItem(item.id)}
-                    className="absolute top-2 right-2 w-8 h-8 bg-red-600 text-white rounded-full text-sm opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center"
-                  >
-                    ✕
-                  </button>
-                  <div className="absolute top-2 left-2">
-                    <span className={`px-2 py-1 rounded-lg text-xs font-medium ${
-                      item.type === 'image' ? 'bg-violet-600/80 text-white'
-                        : item.type === 'video' ? 'bg-fuchsia-600/80 text-white'
-                        : 'bg-emerald-600/80 text-white'
-                    }`}>
-                      {item.type === 'image' ? '🖼️' : item.type === 'video' ? '🎬' : '🎙️'}
-                    </span>
-                  </div>
+          <div className="space-y-6">
+            {/* Iteration groups */}
+            {groups.map((group) => (
+              <div key={group.parentId} className="bg-gray-800/30 rounded-2xl border border-gray-700/30 p-4">
+                {/* Group header */}
+                <div className="flex items-center gap-2 mb-3">
+                  <span className="text-violet-400 text-sm font-medium">🔄 Iteraciones</span>
+                  <span className="text-gray-500 text-xs">
+                    Versión 1 {group.variations.map((_, i) => `→ ${i + 2}`).join(' ')}
+                  </span>
                 </div>
-                <div className="p-3">
-                  <p className="text-gray-300 text-sm truncate">{item.prompt}</p>
-                  <p className="text-gray-500 text-xs mt-1">
-                    {new Date(item.createdAt).toLocaleDateString('es')}
-                  </p>
+
+                {/* Horizontal timeline */}
+                <div className="flex items-start gap-3 overflow-x-auto pb-3">
+                  {/* Original (parent) */}
+                  <div className="flex-shrink-0 w-48">
+                    <CreationCard
+                      item={group.parent}
+                      iterationBadge={1}
+                      isParent
+                      onRemove={removeItem}
+                      onRecreate={openRecreateModal}
+                    />
+                  </div>
+
+                  {/* Arrow */}
+                  {group.variations.length > 0 && (
+                    <div className="flex-shrink-0 flex items-center self-center text-gray-600">
+                      <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7l5 5m0 0l-5 5m5-5H6" />
+                      </svg>
+                    </div>
+                  )}
+
+                  {/* Variations */}
+                  {group.variations.map((variation, idx) => (
+                    <div key={variation.id} className="flex-shrink-0 flex items-start gap-3">
+                      <div className="w-48">
+                        <CreationCard
+                          item={variation}
+                          iterationBadge={idx + 2}
+                          onRemove={removeItem}
+                          onRecreate={openRecreateModal}
+                        />
+                      </div>
+                      {idx < group.variations.length - 1 && (
+                        <div className="flex-shrink-0 flex items-center self-center text-gray-600">
+                          <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7l5 5m0 0l-5 5m5-5H6" />
+                          </svg>
+                        </div>
+                      )}
+                    </div>
+                  ))}
                 </div>
               </div>
             ))}
+
+            {/* Ungrouped (standalone) items */}
+            {ungrouped.length > 0 && (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                {ungrouped.map((item) => (
+                  <CreationCard
+                    key={item.id}
+                    item={item}
+                    onRemove={removeItem}
+                    onRecreate={openRecreateModal}
+                  />
+                ))}
+              </div>
+            )}
           </div>
         )}
+      </div>
+
+      {/* Recrear modal */}
+      {recreatingItem && (
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-gray-900 rounded-2xl border border-gray-700 max-w-lg w-full p-6 space-y-4 max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between">
+              <h3 className="text-white font-bold text-lg">🔄 Recrear Variación</h3>
+              <button
+                onClick={closeRecreateModal}
+                className="text-gray-400 hover:text-white text-xl"
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Original preview */}
+            <div className="flex gap-3 bg-gray-800/50 rounded-xl p-3">
+              {recreatingItem.type === 'video' ? (
+                <video src={recreatingItem.url} className="w-16 h-16 object-cover rounded-lg" muted />
+              ) : (
+                <img src={recreatingItem.url} alt="" className="w-16 h-16 object-cover rounded-lg" />
+              )}
+              <div className="flex-1 min-w-0">
+                <p className="text-gray-400 text-xs">Original</p>
+                <p className="text-gray-300 text-sm truncate">{recreatingItem.prompt}</p>
+              </div>
+            </div>
+
+            {/* Editable prompt */}
+            <div>
+              <label className="block text-sm text-gray-400 mb-1">Prompt (editable)</label>
+              <textarea
+                value={recreatePrompt}
+                onChange={(e) => setRecreatePrompt(e.target.value)}
+                rows={3}
+                className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-violet-500 resize-none text-sm"
+              />
+            </div>
+
+            {/* Style selection */}
+            <div>
+              <label className="block text-sm text-gray-400 mb-2">Estilo</label>
+              <div className="flex flex-wrap gap-2">
+                {STYLES.map((s) => (
+                  <button
+                    key={s.value}
+                    type="button"
+                    onClick={() => setRecreateStyle(s.value)}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
+                      recreateStyle === s.value
+                        ? 'bg-violet-600 text-white shadow-lg'
+                        : 'bg-gray-800 text-gray-400 border border-gray-700 hover:border-violet-500'
+                    }`}
+                  >
+                    {s.emoji} {s.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Error */}
+            {recreateError && (
+              <div className="bg-red-900/20 border border-red-900/30 rounded-xl p-3">
+                <p className="text-red-400 text-sm">❌ {recreateError}</p>
+              </div>
+            )}
+
+            {/* Actions */}
+            <div className="flex gap-3">
+              <button
+                onClick={handleRecreate}
+                disabled={!recreatePrompt.trim() || isRecreating}
+                className={`flex-1 py-3 rounded-xl text-sm font-bold transition-all ${
+                  isRecreating
+                    ? 'bg-gray-700 text-gray-400 cursor-not-allowed'
+                    : 'bg-gradient-to-r from-violet-600 to-fuchsia-600 text-white hover:from-violet-500 hover:to-fuchsia-500 shadow-lg shadow-violet-600/25'
+                }`}
+              >
+                {isRecreating ? (
+                  <span className="flex items-center justify-center gap-2">
+                    <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                    </svg>
+                    Generando variación...
+                  </span>
+                ) : (
+                  '✨ Generar variación'
+                )}
+              </button>
+              <button
+                onClick={closeRecreateModal}
+                disabled={isRecreating}
+                className="px-6 py-3 bg-gray-700 text-gray-300 rounded-xl text-sm font-medium hover:bg-gray-600 disabled:opacity-50"
+              >
+                Cancelar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// Subcomponent: Creation card
+function CreationCard({
+  item,
+  iterationBadge,
+  isParent,
+  onRemove,
+  onRecreate,
+}: {
+  item: ProjectItem;
+  iterationBadge?: number;
+  isParent?: boolean;
+  onRemove: (id: string) => void;
+  onRecreate: (item: ProjectItem) => void;
+}) {
+  return (
+    <div className={`bg-gray-800 rounded-2xl border overflow-hidden group ${
+      isParent ? 'border-violet-700/50' : 'border-gray-700'
+    }`}>
+      <div className="aspect-square relative overflow-hidden">
+        {item.type === 'video' ? (
+          <video src={item.url} controls className="w-full h-full object-cover" />
+        ) : item.type === 'voice' ? (
+          <div className="w-full h-full bg-gradient-to-br from-emerald-900/30 to-teal-900/30 flex items-center justify-center">
+            <div className="text-center p-4">
+              <span className="text-4xl">🎙️</span>
+              <audio controls className="w-full mt-3" style={{ height: '32px' }}>
+                <source src={item.url} type="audio/mpeg" />
+              </audio>
+            </div>
+          </div>
+        ) : (
+          <img src={item.url} alt={item.prompt} className="w-full h-full object-cover" />
+        )}
+
+        {/* Remove button */}
+        <button
+          onClick={() => onRemove(item.id)}
+          className="absolute top-2 right-2 w-8 h-8 bg-red-600 text-white rounded-full text-sm opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center"
+        >
+          ✕
+        </button>
+
+        {/* Type badge */}
+        <div className="absolute top-2 left-2">
+          <span className={`px-2 py-1 rounded-lg text-xs font-medium ${
+            item.type === 'image' ? 'bg-violet-600/80 text-white'
+              : item.type === 'video' ? 'bg-fuchsia-600/80 text-white'
+              : 'bg-emerald-600/80 text-white'
+          }`}>
+            {item.type === 'image' ? '🖼️' : item.type === 'video' ? '🎬' : '🎙️'}
+          </span>
+        </div>
+
+        {/* Iteration badge */}
+        {iterationBadge !== undefined && (
+          <div className="absolute bottom-2 left-2">
+            <span className={`px-2 py-1 rounded-lg text-xs font-bold ${
+              isParent
+                ? 'bg-violet-600 text-white'
+                : 'bg-fuchsia-600/90 text-white'
+            }`}>
+              V{iterationBadge}
+            </span>
+          </div>
+        )}
+
+        {/* Recrear button */}
+        {item.type !== 'voice' && (
+          <button
+            onClick={(e) => { e.stopPropagation(); onRecreate(item); }}
+            className="absolute bottom-2 right-2 px-2.5 py-1.5 bg-violet-600/90 text-white rounded-lg text-xs font-medium opacity-0 group-hover:opacity-100 transition-opacity hover:bg-violet-500 shadow-lg"
+          >
+            🔄 Recrear
+          </button>
+        )}
+      </div>
+      <div className="p-3">
+        <p className="text-gray-300 text-sm truncate">{item.prompt}</p>
+        <p className="text-gray-500 text-xs mt-1">
+          {new Date(item.createdAt).toLocaleDateString('es')}
+        </p>
       </div>
     </div>
   );

@@ -24,6 +24,8 @@ public class ProjectItemDto
     public string Style { get; set; } = string.Empty;
     public string CreatedAt { get; set; } = string.Empty;
     public string? Notes { get; set; }
+    public string? ParentItemId { get; set; }
+    public int IterationNumber { get; set; }
 }
 
 public class CreateProjectRequest
@@ -42,6 +44,8 @@ public class AddItemToProjectRequest
     public string? ThumbnailUrl { get; set; }
     public string Style { get; set; } = string.Empty;
     public string? Notes { get; set; }
+    public string? ParentItemId { get; set; }
+    public int IterationNumber { get; set; }
 }
 
 public class UploadReferenceRequest

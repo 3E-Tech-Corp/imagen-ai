@@ -45,25 +45,55 @@ public class ImageGenerationService
             _ => "square"
         };
 
-        var requestBody = new
-        {
-            prompt = fullPrompt,
-            negative_prompt = negativePrompt,
-            image_size = imageSize,
-            num_inference_steps = 28,
-            guidance_scale = 3.5,
-            num_images = 1,
-            enable_safety_checker = true
-        };
+        // Check if we have reference images for image-to-image generation
+        var hasReference = request.ReferenceImages?.Any(r => !string.IsNullOrEmpty(r)) == true;
+        string endpoint;
+        string requestJson;
 
-        _logger.LogInformation("Image prompt: {Prompt}", fullPrompt);
+        if (hasReference)
+        {
+            // Use image-to-image endpoint with the first reference
+            endpoint = "https://fal.run/fal-ai/flux/dev/image-to-image";
+            var referenceUrl = request.ReferenceImages!.First(r => !string.IsNullOrEmpty(r));
+
+            var i2iBody = new
+            {
+                prompt = fullPrompt,
+                image_url = referenceUrl,
+                strength = 0.65,
+                image_size = imageSize,
+                num_inference_steps = 28,
+                guidance_scale = 3.5,
+                num_images = 1,
+                enable_safety_checker = true
+            };
+            requestJson = JsonSerializer.Serialize(i2iBody);
+            _logger.LogInformation("Image-to-image prompt: {Prompt} (with reference)", fullPrompt);
+        }
+        else
+        {
+            // Standard text-to-image
+            endpoint = "https://fal.run/fal-ai/flux/dev";
+            var t2iBody = new
+            {
+                prompt = fullPrompt,
+                negative_prompt = negativePrompt,
+                image_size = imageSize,
+                num_inference_steps = 28,
+                guidance_scale = 3.5,
+                num_images = 1,
+                enable_safety_checker = true
+            };
+            requestJson = JsonSerializer.Serialize(t2iBody);
+            _logger.LogInformation("Image prompt: {Prompt}", fullPrompt);
+        }
 
         _httpClient.DefaultRequestHeaders.Clear();
         _httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Key", falKey);
 
         var response = await _httpClient.PostAsync(
-            "https://fal.run/fal-ai/flux/dev",
-            new StringContent(JsonSerializer.Serialize(requestBody), Encoding.UTF8, "application/json")
+            endpoint,
+            new StringContent(requestJson, Encoding.UTF8, "application/json")
         );
 
         var responseBody = await response.Content.ReadAsStringAsync();
@@ -96,6 +126,10 @@ public class ImageGenerationService
 
         _logger.LogInformation("Video prompt: {Prompt}", fullPrompt);
 
+        // Check if we have reference images for image-to-video
+        var hasReference = request.ReferenceImages?.Any(r => !string.IsNullOrEmpty(r)) == true;
+        var referenceUrl = hasReference ? request.ReferenceImages!.First(r => !string.IsNullOrEmpty(r)) : null;
+
         // Choose model based on speed preference
         var useFastModel = request.VideoSpeed != "quality";
         string modelEndpoint;
@@ -105,24 +139,51 @@ public class ImageGenerationService
         {
             // MiniMax Hailuo Live — fast, ~30-60 seconds
             modelEndpoint = "fal-ai/minimax-video/video-01-live";
-            requestBody = new
+            if (hasReference)
             {
-                prompt = fullPrompt,
-                prompt_optimizer = true
-            };
-            _logger.LogInformation("Using FAST model: MiniMax Hailuo Live");
+                requestBody = new
+                {
+                    prompt = fullPrompt,
+                    prompt_optimizer = true,
+                    first_frame_image = referenceUrl
+                };
+                _logger.LogInformation("Using FAST model: MiniMax Hailuo Live (with reference image)");
+            }
+            else
+            {
+                requestBody = new
+                {
+                    prompt = fullPrompt,
+                    prompt_optimizer = true
+                };
+                _logger.LogInformation("Using FAST model: MiniMax Hailuo Live");
+            }
         }
         else
         {
             // Kling — high quality, 3-5 minutes
             modelEndpoint = "fal-ai/kling-video/v1/standard/text-to-video";
-            requestBody = new
+            if (hasReference)
             {
-                prompt = fullPrompt,
-                duration = "5",
-                aspect_ratio = "16:9"
-            };
-            _logger.LogInformation("Using QUALITY model: Kling");
+                requestBody = new
+                {
+                    prompt = fullPrompt,
+                    duration = "5",
+                    aspect_ratio = "16:9",
+                    image_url = referenceUrl
+                };
+                _logger.LogInformation("Using QUALITY model: Kling (with reference image)");
+            }
+            else
+            {
+                requestBody = new
+                {
+                    prompt = fullPrompt,
+                    duration = "5",
+                    aspect_ratio = "16:9"
+                };
+                _logger.LogInformation("Using QUALITY model: Kling");
+            }
         }
 
         _httpClient.DefaultRequestHeaders.Clear();

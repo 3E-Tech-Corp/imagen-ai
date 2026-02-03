@@ -47,6 +47,7 @@ export default function App() {
         useCase: options.useCase,
         negativePrompt: options.negativePrompt,
         videoSpeed: options.videoSpeed || 'fast',
+        referenceImages: options.referenceImages,
       });
 
       setResults((prev) =>

@@ -1,5 +1,6 @@
-import { useState } from 'react';
+import { useState, useCallback } from 'react';
 import api from '../services/api';
+import VoiceInput from './VoiceInput';
 
 interface Recipe {
   name: string;
@@ -53,6 +54,16 @@ export default function RecipeGenerator({ isGenerating, setIsGenerating }: Recip
   const [expandedRecipe, setExpandedRecipe] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
 
+  const handleVoiceTranscript = useCallback((text: string) => {
+    setIngredients((prev) => {
+      const trimmed = prev.trim();
+      if (trimmed && !trimmed.endsWith(',')) {
+        return trimmed + ', ' + text;
+      }
+      return trimmed ? trimmed + ' ' + text : text;
+    });
+  }, []);
+
   const handleGenerate = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!ingredients.trim() || isGenerating) return;
@@ -91,13 +102,18 @@ export default function RecipeGenerator({ isGenerating, setIsGenerating }: Recip
           <label className="block text-sm font-medium text-gray-300 mb-2">
             🥕 ¿Qué ingredientes tienes?
           </label>
-          <textarea
-            value={ingredients}
-            onChange={(e) => setIngredients(e.target.value)}
-            placeholder="Escribe los ingredientes que tienes... Ej: pollo, arroz, brócoli, cebolla, ajo, limón, aceite de oliva"
-            rows={3}
-            className="w-full px-5 py-4 bg-gray-800 border border-gray-700 rounded-2xl text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent resize-none text-lg"
-          />
+          <div className="relative">
+            <textarea
+              value={ingredients}
+              onChange={(e) => setIngredients(e.target.value)}
+              placeholder="Escribe los ingredientes que tienes... Ej: pollo, arroz, brócoli, cebolla, ajo, limón, aceite de oliva"
+              rows={3}
+              className="w-full px-5 py-4 pr-14 bg-gray-800 border border-gray-700 rounded-2xl text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent resize-none text-lg"
+            />
+            <div className="absolute bottom-3 right-3">
+              <VoiceInput onTranscript={handleVoiceTranscript} />
+            </div>
+          </div>
         </div>
 
         {/* Meal type */}

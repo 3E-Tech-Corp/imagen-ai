@@ -13,6 +13,7 @@ public class GenerationRequest
     public string UseCase { get; set; } = "any";
     public string? NegativePrompt { get; set; }
     public string VideoSpeed { get; set; } = "fast"; // "fast" (MiniMax ~30s) or "quality" (Kling ~3-5min)
+    public List<string>? ReferenceImages { get; set; }
 }
 
 public class GenerationResponse

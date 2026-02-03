@@ -1,8 +1,9 @@
-import { useState } from 'react';
+import { useState, useRef, useCallback } from 'react';
 import {
   GenerationType, STYLES, ENVIRONMENTS, TIME_PERIODS,
   LIGHTING_OPTIONS, EMOTIONS, QUALITY_OPTIONS, USE_CASES,
 } from '../types';
+import VoiceInput from './VoiceInput';
 
 interface PromptInputProps {
   type: GenerationType;
@@ -20,9 +21,10 @@ export interface GenerationOptions {
   useCase: string;
   negativePrompt?: string;
   videoSpeed?: string;
+  referenceImages?: string[];
 }
 
-type SectionId = 'style' | 'scene' | 'mood' | 'quality' | 'advanced';
+type SectionId = 'style' | 'references' | 'scene' | 'mood' | 'quality' | 'advanced';
 
 export default function PromptInput({ type, onGenerate, isGenerating }: PromptInputProps) {
   const [prompt, setPrompt] = useState('');
@@ -36,6 +38,9 @@ export default function PromptInput({ type, onGenerate, isGenerating }: PromptIn
   const [negativePrompt, setNegativePrompt] = useState('');
   const [videoSpeed, setVideoSpeed] = useState('fast');
   const [expandedSection, setExpandedSection] = useState<SectionId | null>('style');
+  const [referenceImages, setReferenceImages] = useState<string[]>([]);
+  const [isDragging, setIsDragging] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -44,12 +49,74 @@ export default function PromptInput({ type, onGenerate, isGenerating }: PromptIn
       style, environment, timePeriod, lighting, emotion, quality, useCase,
       negativePrompt: negativePrompt.trim() || undefined,
       videoSpeed: type === 'video' ? videoSpeed : undefined,
+      referenceImages: referenceImages.length > 0 ? referenceImages : undefined,
     });
   };
 
   const toggleSection = (id: SectionId) => {
     setExpandedSection(expandedSection === id ? null : id);
   };
+
+  const handleVoiceTranscript = useCallback((text: string) => {
+    setPrompt((prev) => {
+      const trimmed = prev.trim();
+      if (trimmed && !trimmed.endsWith('.') && !trimmed.endsWith(',') && !trimmed.endsWith('!') && !trimmed.endsWith('?')) {
+        return trimmed + ' ' + text;
+      }
+      return trimmed ? trimmed + ' ' + text : text;
+    });
+  }, []);
+
+  // Reference image handling
+  const processFile = useCallback((file: File) => {
+    if (referenceImages.length >= 5) return;
+    
+    const validTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp', 'video/mp4', 'video/webm'];
+    if (!validTypes.includes(file.type)) return;
+    
+    // Max 10MB per file
+    if (file.size > 10 * 1024 * 1024) return;
+
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const result = e.target?.result as string;
+      if (result) {
+        setReferenceImages((prev) => {
+          if (prev.length >= 5) return prev;
+          return [...prev, result];
+        });
+      }
+    };
+    reader.readAsDataURL(file);
+  }, [referenceImages.length]);
+
+  const handleFileSelect = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files) return;
+    Array.from(files).forEach(processFile);
+    e.target.value = '';
+  }, [processFile]);
+
+  const handleDrop = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(false);
+    const files = e.dataTransfer.files;
+    Array.from(files).forEach(processFile);
+  }, [processFile]);
+
+  const handleDragOver = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(true);
+  }, []);
+
+  const handleDragLeave = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(false);
+  }, []);
+
+  const removeReference = useCallback((index: number) => {
+    setReferenceImages((prev) => prev.filter((_, i) => i !== index));
+  }, []);
 
   const placeholders = type === 'image'
     ? 'Describe la imagen que quieres crear... Ej: "Una mujer joven con cabello rojo caminando por un bosque encantado al atardecer, con luciérnagas brillando a su alrededor"'
@@ -61,6 +128,12 @@ export default function PromptInput({ type, onGenerate, isGenerating }: PromptIn
       label: 'Estilo Visual',
       emoji: '🎨',
       summary: STYLES.find(s => s.value === style)?.label || style,
+    },
+    {
+      id: 'references',
+      label: 'Referencias',
+      emoji: '📎',
+      summary: referenceImages.length > 0 ? `${referenceImages.length} archivo${referenceImages.length > 1 ? 's' : ''}` : 'Sin referencias',
     },
     {
       id: 'scene',
@@ -102,13 +175,19 @@ export default function PromptInput({ type, onGenerate, isGenerating }: PromptIn
         <label className="block text-sm font-medium text-gray-300 mb-2">
           {type === 'image' ? '🖼️ Describe tu imagen' : '🎬 Describe tu video'}
         </label>
-        <textarea
-          value={prompt}
-          onChange={(e) => setPrompt(e.target.value)}
-          placeholder={placeholders}
-          rows={4}
-          className="w-full px-5 py-4 bg-gray-800 border border-gray-700 rounded-2xl text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent resize-none text-lg"
-        />
+        <div className="relative">
+          <textarea
+            value={prompt}
+            onChange={(e) => setPrompt(e.target.value)}
+            placeholder={placeholders}
+            rows={4}
+            className="w-full px-5 py-4 pr-14 bg-gray-800 border border-gray-700 rounded-2xl text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent resize-none text-lg"
+          />
+          {/* Voice input button - bottom right of textarea */}
+          <div className="absolute bottom-3 right-3">
+            <VoiceInput onTranscript={handleVoiceTranscript} />
+          </div>
+        </div>
       </div>
 
       {/* Collapsible sections */}
@@ -148,6 +227,84 @@ export default function PromptInput({ type, onGenerate, isGenerating }: PromptIn
                         {s.emoji} {s.label}
                       </button>
                     ))}
+                  </div>
+                )}
+
+                {section.id === 'references' && (
+                  <div className="space-y-3">
+                    {/* Drop zone */}
+                    <div
+                      onDrop={handleDrop}
+                      onDragOver={handleDragOver}
+                      onDragLeave={handleDragLeave}
+                      onClick={() => referenceImages.length < 5 && fileInputRef.current?.click()}
+                      className={`border-2 border-dashed rounded-xl p-4 text-center cursor-pointer transition-all ${
+                        isDragging
+                          ? 'border-violet-500 bg-violet-500/10'
+                          : referenceImages.length >= 5
+                            ? 'border-gray-700 bg-gray-900/30 cursor-not-allowed opacity-50'
+                            : 'border-gray-700 hover:border-violet-500/50 hover:bg-gray-900/50'
+                      }`}
+                    >
+                      <input
+                        ref={fileInputRef}
+                        type="file"
+                        accept="image/*,video/mp4,video/webm"
+                        multiple
+                        onChange={handleFileSelect}
+                        className="hidden"
+                        disabled={referenceImages.length >= 5}
+                      />
+                      <p className="text-gray-400 text-sm">
+                        {referenceImages.length >= 5
+                          ? '📎 Máximo 5 referencias alcanzado'
+                          : isDragging
+                            ? '📎 Suelta aquí...'
+                            : '📎 Arrastra imágenes/videos o haz clic para subir'}
+                      </p>
+                      <p className="text-gray-600 text-xs mt-1">
+                        Máx. 5 archivos · JPG, PNG, GIF, WebP, MP4
+                      </p>
+                    </div>
+
+                    {/* Thumbnails */}
+                    {referenceImages.length > 0 && (
+                      <div className="flex gap-3 overflow-x-auto pb-2">
+                        {referenceImages.map((ref, index) => (
+                          <div key={index} className="relative flex-shrink-0 group">
+                            {ref.startsWith('data:video') ? (
+                              <video
+                                src={ref}
+                                className="w-20 h-20 object-cover rounded-xl border border-gray-700"
+                                muted
+                              />
+                            ) : (
+                              <img
+                                src={ref}
+                                alt={`Referencia ${index + 1}`}
+                                className="w-20 h-20 object-cover rounded-xl border border-gray-700"
+                              />
+                            )}
+                            <button
+                              type="button"
+                              onClick={(e) => { e.stopPropagation(); removeReference(index); }}
+                              className="absolute -top-2 -right-2 w-6 h-6 bg-red-600 text-white rounded-full text-xs flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity shadow-lg"
+                            >
+                              ✕
+                            </button>
+                            <div className="absolute bottom-1 left-1 bg-black/60 px-1.5 py-0.5 rounded text-[10px] text-gray-300">
+                              {index + 1}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+
+                    {referenceImages.length > 0 && (
+                      <p className="text-gray-500 text-xs">
+                        💡 La primera imagen se usará como referencia principal para la generación
+                      </p>
+                    )}
                   </div>
                 )}
 

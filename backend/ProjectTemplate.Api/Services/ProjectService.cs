@@ -175,7 +175,9 @@ public class ProjectService
                 ThumbnailUrl = request.ThumbnailUrl,
                 Style = request.Style,
                 Notes = request.Notes,
-                CreatedAt = DateTime.UtcNow.ToString("o")
+                CreatedAt = DateTime.UtcNow.ToString("o"),
+                ParentItemId = request.ParentItemId,
+                IterationNumber = request.IterationNumber
             };
 
             project.Items.Insert(0, item);
