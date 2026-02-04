@@ -8,8 +8,22 @@ using Dapper;
 
 var builder = WebApplication.CreateBuilder(args);
 
+// Increase request body size limit for base64 images (selfies can be large)
+builder.Services.Configure<Microsoft.AspNetCore.Http.Features.FormOptions>(options =>
+{
+    options.MultipartBodyLengthLimit = 50 * 1024 * 1024; // 50MB
+});
+builder.WebHost.ConfigureKestrel(options =>
+{
+    options.Limits.MaxRequestBodySize = 50 * 1024 * 1024; // 50MB
+});
+
 // Add services
-builder.Services.AddControllers();
+builder.Services.AddControllers()
+    .AddJsonOptions(options =>
+    {
+        options.JsonSerializerOptions.DefaultBufferSize = 32 * 1024; // 32KB buffer for large JSON
+    });
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(c =>
 {

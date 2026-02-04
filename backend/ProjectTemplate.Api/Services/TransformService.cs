@@ -148,7 +148,7 @@ Responde SIEMPRE en JSON válido con EXACTAMENTE esta estructura (sin texto fuer
     {
         _config = config;
         _logger = logger;
-        _httpClient = new HttpClient { Timeout = TimeSpan.FromSeconds(120) };
+        _httpClient = new HttpClient { Timeout = TimeSpan.FromSeconds(240) }; // 4 min — 14 sections take time
     }
 
     private string GetOpenAiKey()
@@ -225,6 +225,17 @@ Responde SIEMPRE en JSON válido con EXACTAMENTE esta estructura (sin texto fuer
 
         _logger.LogInformation("Transform: Parsing analysis result ({ContentLength} chars)", content.Length);
 
+        // Clean up content — GPT sometimes wraps JSON in markdown code blocks
+        var cleanContent = content.Trim();
+        if (cleanContent.StartsWith("```"))
+        {
+            var firstNewline = cleanContent.IndexOf('\n');
+            if (firstNewline > 0)
+                cleanContent = cleanContent[(firstNewline + 1)..];
+            if (cleanContent.EndsWith("```"))
+                cleanContent = cleanContent[..^3].Trim();
+        }
+
         // Parse the JSON content from GPT
         var options = new JsonSerializerOptions
         {
@@ -232,7 +243,18 @@ Responde SIEMPRE en JSON válido con EXACTAMENTE esta estructura (sin texto fuer
             PropertyNamingPolicy = JsonNamingPolicy.CamelCase
         };
 
-        var result = JsonSerializer.Deserialize<TransformAnalyzeResponse>(content, options);
+        TransformAnalyzeResponse? result;
+        try
+        {
+            result = JsonSerializer.Deserialize<TransformAnalyzeResponse>(cleanContent, options);
+        }
+        catch (JsonException jsonEx)
+        {
+            _logger.LogError(jsonEx, "Transform: Failed to parse JSON. Content starts with: {Start}",
+                cleanContent[..Math.Min(200, cleanContent.Length)]);
+            throw new Exception("Error al procesar el análisis. Intenta de nuevo.");
+        }
+
         if (result == null)
             throw new Exception("Error al procesar el análisis. Intenta de nuevo.");
 

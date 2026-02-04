@@ -172,6 +172,32 @@ function getColorHex(colorName: string): string {
   return `hsl(${Math.abs(hash) % 360}, 60%, 50%)`;
 }
 
+// ── Image compression helper ───────────────────────────────────────────
+function compressImage(dataUrl: string, maxDim = 1024, quality = 0.8): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => {
+      let { width, height } = img;
+      // Scale down if needed
+      if (width > maxDim || height > maxDim) {
+        const ratio = Math.min(maxDim / width, maxDim / height);
+        width = Math.round(width * ratio);
+        height = Math.round(height * ratio);
+      }
+      const canvas = document.createElement('canvas');
+      canvas.width = width;
+      canvas.height = height;
+      const ctx = canvas.getContext('2d');
+      if (!ctx) { reject(new Error('Canvas not supported')); return; }
+      ctx.drawImage(img, 0, 0, width, height);
+      const compressed = canvas.toDataURL('image/jpeg', quality);
+      resolve(compressed);
+    };
+    img.onerror = () => reject(new Error('Error al cargar la imagen'));
+    img.src = dataUrl;
+  });
+}
+
 // ── Goals ──────────────────────────────────────────────────────────────
 const GOALS = [
   { value: '', label: 'Selecciona un objetivo (opcional)' },
@@ -300,7 +326,17 @@ export default function TransformSection() {
     if (file.size > 20 * 1024 * 1024) { setError('La imagen es muy grande. Máximo 20MB.'); return; }
     setError('');
     const reader = new FileReader();
-    reader.onload = () => { setImage(reader.result as string); setResult(null); };
+    reader.onload = async () => {
+      try {
+        // Compress to max 1024px and JPEG quality 0.8 to keep payload small for AI analysis
+        const compressed = await compressImage(reader.result as string, 1024, 0.85);
+        setImage(compressed);
+        setResult(null);
+      } catch {
+        setImage(reader.result as string);
+        setResult(null);
+      }
+    };
     reader.readAsDataURL(file);
   }, []);
 
@@ -319,7 +355,7 @@ export default function TransformSection() {
         age: age ? parseInt(age) : undefined,
         goal: goal || undefined,
         personality: personality || undefined,
-      }, 180_000);
+      }, 300_000); // 5 min timeout — AI analysis of 14 sections takes time
       setResult(res);
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Error al analizar. Intenta de nuevo.');
@@ -424,8 +460,16 @@ export default function TransformSection() {
               <span key={i} className="text-2xl animate-bounce" style={{ animationDelay: `${i * 0.12}s` }}>{e}</span>
             ))}
           </div>
-          <p className="text-gray-400 text-sm">Analizando tu foto con IA... esto puede tomar 20-30 segundos</p>
-          <p className="text-gray-500 text-xs">Preparando tus 14 secciones personalizadas ✨</p>
+          <div className="space-y-2">
+            <p className="text-gray-300 text-base font-medium">✨ Analizando tu foto con IA...</p>
+            <p className="text-gray-400 text-sm">Preparando tus 14 secciones personalizadas</p>
+            <p className="text-gray-500 text-xs">Esto puede tomar 30-60 segundos — no cierres la página 🙏</p>
+          </div>
+          <div className="max-w-xs mx-auto mt-4">
+            <div className="h-1.5 bg-gray-700 rounded-full overflow-hidden">
+              <div className="h-full bg-gradient-to-r from-pink-500 via-purple-500 to-indigo-500 rounded-full animate-progress" />
+            </div>
+          </div>
         </div>
       )}
 
@@ -699,6 +743,8 @@ export default function TransformSection() {
       <style>{`
         @keyframes fadeIn { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
         .animate-fade-in { animation: fadeIn 0.6s ease-out; }
+        @keyframes progress { 0% { width: 0%; } 50% { width: 70%; } 80% { width: 85%; } 100% { width: 95%; } }
+        .animate-progress { animation: progress 60s ease-out forwards; }
       `}</style>
     </div>
   );
