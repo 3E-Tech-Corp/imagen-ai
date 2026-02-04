@@ -14,6 +14,8 @@ public class GenerationRequest
     public string? NegativePrompt { get; set; }
     public string VideoSpeed { get; set; } = "fast"; // "fast" (MiniMax ~30s) or "quality" (Kling ~3-5min)
     public string Language { get; set; } = "es"; // Language for video audio
+    public string AspectRatio { get; set; } = "square_hd"; // square_hd, portrait_4_3, landscape_16_9, landscape_4_3
+    public double EditStrength { get; set; } = 0.65; // 0.3=subtle, 0.5=moderate, 0.8=drastic
     public List<string>? ReferenceImages { get; set; }
 }
 

@@ -15,53 +15,120 @@ public class ChatService
     private readonly ProjectService _projectService;
     private readonly HttpClient _httpClient;
 
-    private const string SystemPrompt = @"Eres un asistente creativo experto en generación de imágenes y videos con IA.
-Respondes siempre en español con calidez y profesionalismo.
+    private const string SystemPrompt = @"Eres un director de arte y fotógrafo profesional experto en generación de imágenes y videos con IA.
+Tu trabajo es convertir lo que el usuario pide en prompts PERFECTOS en inglés para modelos de generación de IA.
 
-Tu trabajo es interpretar EXACTAMENTE lo que el usuario quiere y generar prompts perfectos en inglés para los modelos de IA.
+═══════════════════════════════════════════
+REGLA #1: EXACTITUD ABSOLUTA
+═══════════════════════════════════════════
+- Genera EXACTAMENTE lo que el usuario pide. Ni más, ni menos.
+- NO agregues elementos que el usuario NO mencionó.
+- NO cambies colores, poses, ropa, fondo, ni ningún detalle.
+- Si el usuario dice ""mujer con vestido rojo en la playa"", el prompt debe tener EXACTAMENTE eso.
+- Si el usuario dice ""cuerpo completo"" → OBLIGATORIO incluir ""full body shot from head to toe, entire body visible, feet visible on ground""
+- Si el usuario dice ""primer plano"" → ""extreme close-up portrait, face filling the frame""
+- Si NO especifica encuadre, usa ""medium shot, waist up"" por defecto para personas.
 
-REGLAS DE PROMPTS (MUY IMPORTANTE):
-1. El prompt SIEMPRE debe ser en inglés detallado y descriptivo
-2. Si el usuario pide una PERSONA: describe edad aproximada, etnia, ropa, pose, expresión facial, tipo de cuerpo, y fondo. Si pide cuerpo completo, especifica ""full body shot, head to toe""
-3. Si el usuario pide un ANIMAL: describe especie, color, tamaño, pose, entorno, iluminación
-4. Si el usuario pide un OBJETO: describe material, color, textura, ángulo, fondo
-5. SIEMPRE agrega detalles técnicos de fotografía: ""8K, ultra detailed, professional photography, sharp focus, natural lighting"" para fotos realistas
-6. Si el usuario especifica un idioma para el video, inclúyelo en el campo ""language""
-7. Respeta EXACTAMENTE lo que el usuario pide. No inventes elementos que no pidió
-8. Si pide algo realista, usa style ""photorealistic"" y agrega ""hyperrealistic, photographic quality, real life""
-9. Para personas: ""anatomically correct, natural proportions, detailed skin texture, realistic eyes""
-10. Para cuerpo completo: ""full body portrait, standing pose, visible from head to feet, complete figure""
+═══════════════════════════════════════════
+REGLA #2: PROMPTS ULTRA-DETALLADOS
+═══════════════════════════════════════════
+Tu prompt en inglés DEBE tener mínimo 80 palabras. Incluye SIEMPRE:
 
-Mantén contexto de la conversación - si dice ""hazla más roja"" se refiere a la última imagen/video.
-Si hay imagen de referencia o previa, úsala como base para ediciones.
+PARA PERSONAS:
+- Etnia/apariencia exacta que el usuario describió
+- Edad aproximada si se mencionó
+- Descripción exacta de ropa (color, material, corte, ajuste)
+- Expresión facial específica
+- Pose corporal específica
+- Tipo de cabello (color, largo, estilo)
+- Fondo/ambiente exacto descrito
+- Iluminación: ""professional studio lighting, soft key light, subtle fill light, natural skin tones""
+- Técnico: ""shot on Canon EOS R5, 85mm f/1.4 lens, RAW photograph, 8K UHD, ultra sharp focus""
+- Piel: ""detailed skin texture with natural pores, subsurface scattering, no airbrushing""
+- Ojos: ""highly detailed eyes with natural reflections, catchlight""
 
-Acciones disponibles:
-- generate_image: Crear imagen nueva (personas, animales, objetos, paisajes, CUALQUIER COSA)
-- generate_video: Crear video (con o sin imagen de referencia)
-- edit_image: Modificar imagen existente
-- text_only: Solo texto (saludos, preguntas, explicaciones)
+PARA ANIMALES:
+- Especie exacta, raza si aplica
+- Color/patrón del pelaje o plumaje
+- Postura y acción
+- Ambiente/entorno
+- ""wildlife photography, National Geographic quality, sharp fur/feather detail, natural habitat""
+- ""shot on Nikon Z9, 200mm telephoto lens, shallow depth of field""
 
-Responde SIEMPRE con JSON válido (sin markdown, sin ```json):
+PARA OBJETOS:
+- Material exacto, color, textura
+- Ángulo de cámara
+- Fondo (si no se especifica, usa fondo neutro)
+- ""product photography, commercial quality, perfect lighting, studio setup""
+
+PARA PAISAJES/ESCENAS:
+- Elementos exactos del paisaje
+- Hora del día, clima
+- Atmósfera y mood
+- ""landscape photography, ultra wide angle, 8K panoramic, dramatic composition""
+
+═══════════════════════════════════════════
+REGLA #3: ASPECTO DE LA IMAGEN
+═══════════════════════════════════════════
+Determina el aspect_ratio según lo que el usuario pide:
+- Persona de cuerpo completo → ""portrait_4_3"" (vertical)
+- Retrato/cara → ""portrait_4_3"" (vertical)
+- Paisaje/escena amplia → ""landscape_16_9"" (horizontal)
+- Objeto/producto → ""square_hd"" (cuadrado)
+- Si el usuario pide un formato específico (horizontal, vertical) → respétalo
+- Si no es claro → ""square_hd""
+
+═══════════════════════════════════════════
+REGLA #4: VIDEOS
+═══════════════════════════════════════════
+Para videos, el prompt debe describir:
+- La ACCIÓN que ocurre (movimiento, cambio, transición)
+- Dirección de cámara (pan, zoom, tracking shot, static)
+- Ritmo (lento, rápido, dinámico)
+- Sonido ambiente si aplica
+- Si el usuario pide que hablen en un idioma, inclúyelo en language
+
+═══════════════════════════════════════════
+REGLA #5: EDICIÓN DE IMÁGENES
+═══════════════════════════════════════════
+Cuando el usuario quiere MODIFICAR una imagen existente:
+- Describe la imagen completa incluyendo el cambio solicitado
+- editStrength: 0.3 para cambios sutiles (color, iluminación), 0.5 para moderados (ropa, fondo), 0.8 para drásticos (pose, persona diferente)
+
+═══════════════════════════════════════════
+FORMATO DE RESPUESTA (JSON ESTRICTO)
+═══════════════════════════════════════════
+Responde SIEMPRE con JSON válido. SIN markdown, SIN ```json, SIN texto extra.
+
 {
   ""action"": ""generate_image"",
-  ""message"": ""Mensaje al usuario en español, cálido y profesional"",
-  ""prompt"": ""Extremely detailed English prompt for the AI model. Include photography details, lighting, composition, textures. Be very specific."",
+  ""message"": ""Tu mensaje al usuario en español, breve y profesional"",
+  ""prompt"": ""El prompt completo en inglés, mínimo 80 palabras, ultra detallado"",
   ""style"": ""photorealistic"",
+  ""aspect_ratio"": ""square_hd"",
   ""editStrength"": 0.65,
   ""videoSpeed"": ""fast"",
   ""language"": ""es"",
   ""suggestions"": [""Sugerencia 1"", ""Sugerencia 2"", ""Sugerencia 3""]
 }
 
-language: ""es"" (español), ""en"" (inglés), ""fr"" (francés), ""de"" (alemán), ""pt"" (portugués), ""it"" (italiano), ""zh"" (chino), ""ja"" (japonés), ""ko"" (coreano), ""ar"" (árabe), ""hi"" (hindi), ""ru"" (ruso)
-editStrength: 0.3=sutil, 0.5=moderado, 0.8=drástico
-videoSpeed: ""fast"" (~1min) o ""quality"" (alta calidad ~3-5min)
-styles: photorealistic, realistic, cinematic, anime, digital-art, watercolor, oil-painting, pencil-drawing, 3d-render, pixar-3d
+Acciones: generate_image | generate_video | edit_image | text_only
+Estilos: photorealistic | realistic | cinematic | anime | digital-art | watercolor | oil-painting | pencil-drawing | 3d-render | pixar-3d
+aspect_ratio: square_hd | portrait_4_3 | landscape_16_9 | landscape_4_3
+Idiomas: es | en | fr | de | pt | it | zh | ja | ko | ar | hi | ru
+videoSpeed: fast (~1-2min con audio) | quality (alta calidad ~3-5min)
 
-EJEMPLO de buen prompt para persona realista:
-""Hyperrealistic photograph of a young Latina woman, age 25, long flowing black hair, warm brown eyes, gentle smile, wearing a red silk dress, full body shot head to toe, standing in a golden hour sunset beach setting, soft warm lighting, 8K resolution, professional DSLR photography, sharp focus, detailed skin texture, natural proportions, bokeh background""
+EJEMPLO para ""una mujer latina con vestido rojo cuerpo completo en la playa"":
+{
+  ""action"": ""generate_image"",
+  ""message"": ""¡Creando tu imagen! Una mujer latina con vestido rojo en la playa, cuerpo completo. 🏖️"",
+  ""prompt"": ""Full body photograph from head to toe of a beautiful young Latina woman, approximately 25 years old, with long flowing dark brown hair cascading over her shoulders, warm olive skin with natural sun-kissed glow, wearing an elegant flowing red silk dress that moves gently in the ocean breeze, the dress has a V-neckline and reaches just above her ankles, she is standing barefoot on golden sand with gentle waves lapping at her feet, warm golden hour sunset lighting casting long shadows, the sky behind her is painted in shades of orange pink and purple, she has a confident natural smile with subtle makeup, her entire body is visible from head to feet, shot on Canon EOS R5 with 85mm f/1.4 lens, professional fashion photography, 8K UHD resolution, ultra sharp focus, detailed skin texture with natural pores, highly detailed eyes with catchlight, shallow depth of field with soft bokeh background, magazine quality editorial photograph"",
+  ""style"": ""photorealistic"",
+  ""aspect_ratio"": ""portrait_4_3"",
+  ""suggestions"": [""Cambiar vestido a azul"", ""Agregar viento en el cabello"", ""Crear video de esta imagen""]
+}
 
-Siempre incluye 3 sugerencias relevantes.";
+Responde en español al usuario. Prompt SIEMPRE en inglés.";
 
     public ChatService(
         IConfiguration config,
@@ -75,7 +142,7 @@ Siempre incluye 3 sugerencias relevantes.";
         _imageService = imageService;
         _videoJobService = videoJobService;
         _projectService = projectService;
-        _httpClient = new HttpClient { Timeout = TimeSpan.FromMinutes(2) };
+        _httpClient = new HttpClient { Timeout = TimeSpan.FromMinutes(3) };
     }
 
     public async Task<ChatMessageResponse> ProcessMessageAsync(ChatMessageRequest request)
@@ -85,8 +152,9 @@ Siempre incluye 3 sugerencias relevantes.";
         // Step 1: Get AI decision from OpenAI
         var decision = await GetAiDecisionAsync(request);
 
-        _logger.LogInformation("AI decision: action={Action}, prompt={Prompt}",
-            decision.Action, decision.Prompt?[..Math.Min(80, decision.Prompt?.Length ?? 0)]);
+        _logger.LogInformation("AI decision: action={Action}, aspect={Aspect}, prompt_length={Len}",
+            decision.Action, decision.AspectRatio ?? "default",
+            decision.Prompt?.Length ?? 0);
 
         // Step 2: Execute the action
         var response = new ChatMessageResponse
@@ -114,14 +182,36 @@ Siempre incluye 3 sugerencias relevantes.";
 
                 case "text_only":
                 default:
-                    // Just text response, no media
                     break;
             }
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error executing action {Action}", decision.Action);
-            response.Message = $"{decision.Message}\n\n⚠️ Hubo un problema al procesar tu solicitud: {ex.Message}";
+            _logger.LogError(ex, "Error executing action {Action}, attempting retry...", decision.Action);
+            
+            // RETRY ONCE on failure
+            try
+            {
+                switch (decision.Action)
+                {
+                    case "generate_image":
+                        await HandleGenerateImage(decision, request, response);
+                        break;
+                    case "generate_video":
+                        await HandleGenerateVideo(decision, request, response);
+                        break;
+                    case "edit_image":
+                        await HandleEditImage(decision, request, response);
+                        break;
+                }
+                // Clear error from first attempt
+                response.Message = decision.Message;
+            }
+            catch (Exception retryEx)
+            {
+                _logger.LogError(retryEx, "Retry also failed for action {Action}", decision.Action);
+                response.Message = $"{decision.Message}\n\n⚠️ Hubo un error al generar. Por favor intenta de nuevo con una descripción diferente.";
+            }
         }
 
         return response;
@@ -131,13 +221,14 @@ Siempre incluye 3 sugerencias relevantes.";
     {
         var genRequest = new GenerationRequest
         {
+            // Use the GPT-4o prompt DIRECTLY — it's already perfect
             Prompt = decision.Prompt ?? request.Message,
             Type = "image",
             Style = decision.Style ?? "photorealistic",
-            Quality = "ultra"
+            Quality = "ultra",
+            AspectRatio = decision.AspectRatio ?? "square_hd"
         };
 
-        // If there are attachments, use them as reference
         if (request.Attachments?.Any() == true)
         {
             genRequest.ReferenceImages = request.Attachments;
@@ -147,7 +238,6 @@ Siempre incluye 3 sugerencias relevantes.";
         response.MediaUrl = media.Url;
         response.MediaType = "image";
 
-        // Auto-save to "Mis Creaciones" project
         _ = _projectService.AutoSaveAsync("image", decision.Prompt ?? request.Message, media.Url, decision.Style ?? "photorealistic");
     }
 
@@ -162,7 +252,6 @@ Siempre incluye 3 sugerencias relevantes.";
             Language = decision.Language ?? "es"
         };
 
-        // Use previous results or attachments as reference for image-to-video
         if (request.PreviousResults?.Any() == true)
         {
             genRequest.ReferenceImages = request.PreviousResults;
@@ -172,10 +261,8 @@ Siempre incluye 3 sugerencias relevantes.";
             genRequest.ReferenceImages = request.Attachments;
         }
 
-        // Create async job (videos take too long for synchronous response)
         var job = _videoJobService.CreateJob(genRequest.Prompt, genRequest.Style);
 
-        // Fire-and-forget with auto-save
         var projectService = _projectService;
         var prompt = decision.Prompt ?? request.Message;
         var style = decision.Style ?? "cinematic";
@@ -185,14 +272,24 @@ Siempre incluye 3 sugerencias relevantes.";
             {
                 var media = await _imageService.GenerateVideoAsync(genRequest);
                 _videoJobService.CompleteJob(job.Id, media.Url);
-                
-                // Auto-save video to "Mis Creaciones"
                 await projectService.AutoSaveAsync("video", prompt, media.Url, style);
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Background video generation failed for chat job {JobId}", job.Id);
-                _videoJobService.FailJob(job.Id, ex.Message);
+                _logger.LogError(ex, "Video generation failed for job {JobId}, retrying...", job.Id);
+                
+                // Retry once
+                try
+                {
+                    var media = await _imageService.GenerateVideoAsync(genRequest);
+                    _videoJobService.CompleteJob(job.Id, media.Url);
+                    await projectService.AutoSaveAsync("video", prompt, media.Url, style);
+                }
+                catch (Exception retryEx)
+                {
+                    _logger.LogError(retryEx, "Video retry also failed for job {JobId}", job.Id);
+                    _videoJobService.FailJob(job.Id, retryEx.Message);
+                }
             }
         });
 
@@ -205,7 +302,6 @@ Siempre incluye 3 sugerencias relevantes.";
 
     private async Task HandleEditImage(AiDecision decision, ChatMessageRequest request, ChatMessageResponse response)
     {
-        // Find the image to edit: first from previousResults, then from attachments
         string? imageToEdit = request.PreviousResults?.LastOrDefault()
             ?? request.Attachments?.FirstOrDefault();
 
@@ -221,6 +317,7 @@ Siempre incluye 3 sugerencias relevantes.";
             Type = "image",
             Style = decision.Style ?? "photorealistic",
             Quality = "ultra",
+            EditStrength = decision.EditStrength ?? 0.65,
             ReferenceImages = new List<string> { imageToEdit }
         };
 
@@ -228,7 +325,6 @@ Siempre incluye 3 sugerencias relevantes.";
         response.MediaUrl = media.Url;
         response.MediaType = "image";
 
-        // Auto-save edited image to "Mis Creaciones"
         _ = _projectService.AutoSaveAsync("image", decision.Prompt ?? request.Message, media.Url, decision.Style ?? "photorealistic");
     }
 
@@ -238,14 +334,13 @@ Siempre incluye 3 sugerencias relevantes.";
         if (string.IsNullOrEmpty(apiKey) || apiKey.Contains("__"))
             throw new InvalidOperationException("OpenAI API key not configured");
 
-        // Build conversation messages for context
         var messages = new List<object>();
         messages.Add(new { role = "system", content = SystemPrompt });
 
-        // Add conversation history (last 10 messages for context)
+        // Add conversation history for context (last 12 messages)
         if (request.History != null)
         {
-            var recentHistory = request.History.TakeLast(10);
+            var recentHistory = request.History.TakeLast(12);
             foreach (var item in recentHistory)
             {
                 var historyContent = item.Content;
@@ -257,15 +352,14 @@ Siempre incluye 3 sugerencias relevantes.";
             }
         }
 
-        // Add context about available previous results
         var userMessage = request.Message;
         if (request.PreviousResults?.Any() == true)
         {
-            userMessage += $"\n\n[Contexto: La última imagen/video generado es: {request.PreviousResults.Last()}]";
+            userMessage += $"\n\n[CONTEXTO: La última imagen/video generado está disponible como referencia: {request.PreviousResults.Last()}]";
         }
         if (request.Attachments?.Any() == true)
         {
-            userMessage += $"\n\n[El usuario adjuntó {request.Attachments.Count} imagen(es) como referencia]";
+            userMessage += $"\n\n[El usuario adjuntó {request.Attachments.Count} imagen(es) como referencia visual]";
         }
 
         messages.Add(new { role = "user", content = userMessage });
@@ -274,8 +368,9 @@ Siempre incluye 3 sugerencias relevantes.";
         {
             model = "gpt-4o",
             messages,
-            temperature = 0.7,
-            max_tokens = 800
+            temperature = 0.25, // LOW temperature for PRECISION — no improvising
+            max_tokens = 1500,  // More tokens for detailed prompts
+            response_format = new { type = "json_object" } // Force JSON output
         };
 
         var json = JsonSerializer.Serialize(requestBody);
@@ -299,17 +394,14 @@ Siempre incluye 3 sugerencias relevantes.";
         if (string.IsNullOrEmpty(content))
             throw new Exception("La IA no generó una respuesta. Intenta de nuevo.");
 
-        _logger.LogInformation("GPT-4o raw response: {Content}", content[..Math.Min(300, content.Length)]);
+        _logger.LogInformation("GPT-4o response (len={Len}): {Content}",
+            content.Length, content[..Math.Min(400, content.Length)]);
 
-        // Parse the JSON response from GPT-4o
-        // Strip markdown code blocks if present
+        // Clean up response
         content = content.Trim();
-        if (content.StartsWith("```json"))
-            content = content[7..];
-        else if (content.StartsWith("```"))
-            content = content[3..];
-        if (content.EndsWith("```"))
-            content = content[..^3];
+        if (content.StartsWith("```json")) content = content[7..];
+        else if (content.StartsWith("```")) content = content[3..];
+        if (content.EndsWith("```")) content = content[..^3];
         content = content.Trim();
 
         try
@@ -319,6 +411,21 @@ Siempre incluye 3 sugerencias relevantes.";
                 PropertyNameCaseInsensitive = true
             });
 
+            if (decision != null)
+            {
+                // Validate prompt length for generation actions
+                if (decision.Action is "generate_image" or "generate_video" or "edit_image"
+                    && (string.IsNullOrEmpty(decision.Prompt) || decision.Prompt.Length < 30))
+                {
+                    _logger.LogWarning("GPT-4o generated a short prompt ({Len} chars), regenerating...",
+                        decision.Prompt?.Length ?? 0);
+                    // Fallback: use user's message enhanced
+                    decision.Prompt = $"Professional {decision.Style ?? "photorealistic"} photograph of {request.Message}, "
+                        + "8K UHD resolution, ultra sharp focus, professional photography, detailed textures, "
+                        + "natural lighting, shot on Canon EOS R5 with 85mm f/1.4 lens";
+                }
+            }
+
             return decision ?? new AiDecision
             {
                 Action = "text_only",
@@ -327,8 +434,7 @@ Siempre incluye 3 sugerencias relevantes.";
         }
         catch (JsonException ex)
         {
-            _logger.LogWarning(ex, "Failed to parse AI response as JSON: {Content}", content);
-            // If GPT-4o didn't return valid JSON, treat it as text response
+            _logger.LogWarning(ex, "Failed to parse AI response: {Content}", content[..Math.Min(200, content.Length)]);
             return new AiDecision
             {
                 Action = "text_only",

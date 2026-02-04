@@ -27,9 +27,6 @@ public class ImageGenerationService
         return falKey;
     }
 
-    /// <summary>
-    /// Send a request with per-request auth headers (thread-safe).
-    /// </summary>
     private async Task<HttpResponseMessage> SendFalRequest(HttpMethod method, string url, string falKey, HttpContent? content = null)
     {
         using var request = new HttpRequestMessage(method, url);
@@ -42,48 +39,87 @@ public class ImageGenerationService
     {
         var falKey = GetFalKey();
 
-        var fullPrompt = PromptBuilder.BuildImagePrompt(
-            request.Prompt, request.Style, request.Environment,
-            request.TimePeriod, request.Lighting, request.Emotion, request.Quality);
+        // Use the prompt DIRECTLY from GPT-4o (already optimized)
+        // Only use PromptBuilder if the prompt is short (came from direct API, not chat)
+        string fullPrompt;
+        if (request.Prompt.Length > 100)
+        {
+            // Long prompt = already processed by GPT-4o, use directly
+            fullPrompt = request.Prompt;
+        }
+        else
+        {
+            // Short prompt = from direct generation, enhance with PromptBuilder
+            fullPrompt = PromptBuilder.BuildImagePrompt(
+                request.Prompt, request.Style, request.Environment,
+                request.TimePeriod, request.Lighting, request.Emotion, request.Quality);
+        }
 
         var negativePrompt = PromptBuilder.BuildNegativePrompt(request.NegativePrompt);
 
-        var imageSize = request.Quality switch
+        // Use aspect ratio from GPT-4o decision or default
+        var imageSize = request.AspectRatio switch
         {
-            "max" => "square_hd",
-            "ultra" => "square_hd",
-            "high" => "square",
-            _ => "square"
+            "portrait_4_3" => "portrait_4_3",
+            "landscape_16_9" => "landscape_16_9",
+            "landscape_4_3" => "landscape_4_3",
+            "square_hd" => "square_hd",
+            "square" => "square",
+            _ => request.Quality switch
+            {
+                "max" or "ultra" => "square_hd",
+                _ => "square"
+            }
         };
 
-        // Check if we have reference images for image-to-image generation
         var hasReference = request.ReferenceImages?.Any(r => !string.IsNullOrEmpty(r)) == true;
         string endpoint;
         string requestJson;
 
         if (hasReference)
         {
-            // Use image-to-image endpoint with the first reference
-            endpoint = "https://fal.run/fal-ai/flux/dev/image-to-image";
             var referenceUrl = request.ReferenceImages!.First(r => !string.IsNullOrEmpty(r));
-
-            var i2iBody = new
+            
+            // Check if it's a data URL (base64) — use dev endpoint for those
+            if (referenceUrl.StartsWith("data:"))
             {
-                prompt = fullPrompt,
-                image_url = referenceUrl,
-                strength = 0.65,
-                image_size = imageSize,
-                num_inference_steps = 28,
-                guidance_scale = 3.5,
-                num_images = 1,
-                enable_safety_checker = true
-            };
-            requestJson = JsonSerializer.Serialize(i2iBody);
-            _logger.LogInformation("Image-to-image prompt: {Prompt} (with reference)", fullPrompt);
+                endpoint = "https://fal.run/fal-ai/flux/dev/image-to-image";
+                var i2iBody = new
+                {
+                    prompt = fullPrompt,
+                    image_url = referenceUrl,
+                    strength = request.EditStrength,
+                    image_size = imageSize,
+                    num_inference_steps = 35, // Higher steps for better quality
+                    guidance_scale = 4.0,     // Higher guidance for more prompt adherence
+                    num_images = 1,
+                    enable_safety_checker = true
+                };
+                requestJson = JsonSerializer.Serialize(i2iBody);
+            }
+            else
+            {
+                // URL reference — use Flux Pro with image_url
+                endpoint = "https://fal.run/fal-ai/flux/dev/image-to-image";
+                var i2iBody = new
+                {
+                    prompt = fullPrompt,
+                    image_url = referenceUrl,
+                    strength = request.EditStrength,
+                    image_size = imageSize,
+                    num_inference_steps = 35,
+                    guidance_scale = 4.0,
+                    num_images = 1,
+                    enable_safety_checker = true
+                };
+                requestJson = JsonSerializer.Serialize(i2iBody);
+            }
+            _logger.LogInformation("Image-to-image: strength={Strength}, size={Size}, prompt_len={Len}",
+                request.EditStrength, imageSize, fullPrompt.Length);
         }
         else
         {
-            // Use Flux Pro 1.1 for highest quality text-to-image
+            // Use Flux Pro 1.1 Ultra for highest quality text-to-image
             endpoint = "https://fal.run/fal-ai/flux-pro/v1.1";
             var t2iBody = new
             {
@@ -94,8 +130,11 @@ public class ImageGenerationService
                 output_format = "jpeg"
             };
             requestJson = JsonSerializer.Serialize(t2iBody);
-            _logger.LogInformation("Image prompt (Flux Pro): {Prompt}", fullPrompt);
+            _logger.LogInformation("Text-to-image (Flux Pro 1.1): size={Size}, prompt_len={Len}",
+                imageSize, fullPrompt.Length);
         }
+
+        _logger.LogInformation("Full prompt: {Prompt}", fullPrompt[..Math.Min(300, fullPrompt.Length)]);
 
         var response = await SendFalRequest(
             HttpMethod.Post, endpoint, falKey,
@@ -107,43 +146,84 @@ public class ImageGenerationService
         if (!response.IsSuccessStatusCode)
         {
             _logger.LogError("FAL image API error: {Status} {Body}", response.StatusCode, responseBody);
-            throw new Exception($"Error generando imagen. Intenta de nuevo.");
+            
+            // If Flux Pro fails, fallback to Flux Dev
+            if (endpoint.Contains("flux-pro"))
+            {
+                _logger.LogWarning("Flux Pro failed, falling back to Flux Dev...");
+                endpoint = "https://fal.run/fal-ai/flux/dev";
+                var fallbackBody = new
+                {
+                    prompt = fullPrompt,
+                    image_size = imageSize,
+                    num_inference_steps = 35,
+                    guidance_scale = 4.0,
+                    num_images = 1,
+                    enable_safety_checker = true
+                };
+                var fallbackJson = JsonSerializer.Serialize(fallbackBody);
+                response = await SendFalRequest(
+                    HttpMethod.Post, endpoint, falKey,
+                    new StringContent(fallbackJson, Encoding.UTF8, "application/json")
+                );
+                responseBody = await response.Content.ReadAsStringAsync();
+                
+                if (!response.IsSuccessStatusCode)
+                {
+                    _logger.LogError("Flux Dev fallback also failed: {Status} {Body}", response.StatusCode, responseBody);
+                    throw new Exception("Error generando imagen. Por favor intenta con otra descripción.");
+                }
+            }
+            else
+            {
+                throw new Exception("Error generando imagen. Intenta de nuevo.");
+            }
         }
 
         var result = JsonSerializer.Deserialize<FalImageResponse>(responseBody);
         var imageUrl = result?.Images?.FirstOrDefault()?.Url
             ?? throw new Exception("No se pudo obtener la imagen. Intenta de nuevo.");
 
+        _logger.LogInformation("Image generated successfully: {Url}", imageUrl[..Math.Min(80, imageUrl.Length)]);
+
         return new GeneratedMedia { Url = imageUrl, Type = "image" };
     }
 
     /// <summary>
     /// Generate video using FAL's async queue API.
-    /// Fast mode: MiniMax Hailuo Live (~30-60s)
+    /// Fast mode: MiniMax Video-01 with audio (~1-2min)
     /// Quality mode: Kling (~3-5min)
     /// </summary>
     public async Task<GeneratedMedia> GenerateVideoAsync(GenerationRequest request)
     {
         var falKey = GetFalKey();
 
-        var fullPrompt = PromptBuilder.BuildVideoPrompt(
-            request.Prompt, request.Style, request.Environment,
-            request.TimePeriod, request.Lighting, request.Emotion, request.Quality);
+        // Use prompt directly if it's long enough (from GPT-4o)
+        string fullPrompt;
+        if (request.Prompt.Length > 100)
+        {
+            fullPrompt = request.Prompt;
+        }
+        else
+        {
+            fullPrompt = PromptBuilder.BuildVideoPrompt(
+                request.Prompt, request.Style, request.Environment,
+                request.TimePeriod, request.Lighting, request.Emotion, request.Quality);
+        }
 
-        _logger.LogInformation("Video prompt: {Prompt}", fullPrompt);
+        _logger.LogInformation("Video prompt (len={Len}): {Prompt}",
+            fullPrompt.Length, fullPrompt[..Math.Min(200, fullPrompt.Length)]);
 
-        // Check if we have reference images for image-to-video
         var hasReference = request.ReferenceImages?.Any(r => !string.IsNullOrEmpty(r)) == true;
         var referenceUrl = hasReference ? request.ReferenceImages!.First(r => !string.IsNullOrEmpty(r)) : null;
 
-        // Choose model based on speed preference
         var useFastModel = request.VideoSpeed != "quality";
         string modelEndpoint;
         object requestBody;
 
         if (useFastModel)
         {
-            // MiniMax Hailuo Video-01 — with audio support, ~1-2 minutes
+            // MiniMax Video-01 — with built-in audio support
             modelEndpoint = "fal-ai/minimax-video/video-01";
             if (hasReference)
             {
@@ -153,7 +233,6 @@ public class ImageGenerationService
                     prompt_optimizer = true,
                     first_frame_image = referenceUrl
                 };
-                _logger.LogInformation("Using model: MiniMax Video-01 with audio (with reference image)");
             }
             else
             {
@@ -162,12 +241,12 @@ public class ImageGenerationService
                     prompt = fullPrompt,
                     prompt_optimizer = true
                 };
-                _logger.LogInformation("Using model: MiniMax Video-01 with audio");
             }
+            _logger.LogInformation("Using MiniMax Video-01 (audio enabled), hasRef={HasRef}", hasReference);
         }
         else
         {
-            // Kling — high quality, 3-5 minutes
+            // Kling — highest quality video
             modelEndpoint = "fal-ai/kling-video/v1/standard/text-to-video";
             if (hasReference)
             {
@@ -178,7 +257,6 @@ public class ImageGenerationService
                     aspect_ratio = "16:9",
                     image_url = referenceUrl
                 };
-                _logger.LogInformation("Using QUALITY model: Kling (with reference image)");
             }
             else
             {
@@ -188,19 +266,18 @@ public class ImageGenerationService
                     duration = "5",
                     aspect_ratio = "16:9"
                 };
-                _logger.LogInformation("Using QUALITY model: Kling");
             }
+            _logger.LogInformation("Using Kling quality model, hasRef={HasRef}", hasReference);
         }
 
-        // Step 1: Submit to queue
-        _logger.LogInformation("Submitting video to FAL queue ({Model})...", modelEndpoint);
+        // Submit to queue
         var submitResponse = await SendFalRequest(
             HttpMethod.Post, $"https://queue.fal.run/{modelEndpoint}", falKey,
             new StringContent(JsonSerializer.Serialize(requestBody), Encoding.UTF8, "application/json")
         );
 
         var submitBody = await submitResponse.Content.ReadAsStringAsync();
-        _logger.LogInformation("FAL queue submit response: {Body}", submitBody);
+        _logger.LogInformation("FAL queue submit: {Body}", submitBody[..Math.Min(300, submitBody.Length)]);
 
         if (!submitResponse.IsSuccessStatusCode)
         {
@@ -216,11 +293,10 @@ public class ImageGenerationService
         if (string.IsNullOrEmpty(requestId) || string.IsNullOrEmpty(statusUrl))
             throw new Exception("No se pudo iniciar la generación de video.");
 
-        _logger.LogInformation("Video queued: request_id={RequestId}, status_url={StatusUrl}, response_url={ResponseUrl}",
-            requestId, statusUrl, responseUrl);
+        _logger.LogInformation("Video queued: id={RequestId}", requestId);
 
-        // Step 2: Poll status URL for completion (max ~8 minutes)
-        var maxWait = TimeSpan.FromMinutes(8);
+        // Poll for completion (max 10 minutes)
+        var maxWait = TimeSpan.FromMinutes(10);
         var pollInterval = TimeSpan.FromSeconds(5);
         var startTime = DateTime.UtcNow;
 
@@ -230,27 +306,22 @@ public class ImageGenerationService
 
             var pollResponse = await SendFalRequest(HttpMethod.Get, statusUrl, falKey);
             var pollBody = await pollResponse.Content.ReadAsStringAsync();
-
             var status = JsonSerializer.Deserialize<FalQueueStatus>(pollBody);
             var elapsed = (DateTime.UtcNow - startTime).TotalSeconds;
 
-            _logger.LogInformation("Video status after {Elapsed}s: {Status} (queue_position: {Pos})",
-                elapsed, status?.Status ?? "unknown", status?.QueuePosition);
+            _logger.LogInformation("Video status {Elapsed}s: {Status}", elapsed, status?.Status ?? "unknown");
 
             if (status?.Status == "COMPLETED")
             {
-                _logger.LogInformation("Video generation completed after {Seconds}s", elapsed);
+                _logger.LogInformation("Video completed in {Seconds}s", elapsed);
 
-                // Step 3: Get the result from response URL
                 var resultUrl = responseUrl ?? statusUrl.Replace("/status", "");
                 var resultResponse = await SendFalRequest(HttpMethod.Get, resultUrl, falKey);
                 var resultBody = await resultResponse.Content.ReadAsStringAsync();
 
-                _logger.LogInformation("FAL result response: {Body}", resultBody[..Math.Min(500, resultBody.Length)]);
-
                 if (!resultResponse.IsSuccessStatusCode)
                 {
-                    _logger.LogError("FAL result fetch error: {Status} {Body}", resultResponse.StatusCode, resultBody);
+                    _logger.LogError("FAL result error: {Status} {Body}", resultResponse.StatusCode, resultBody);
                     throw new Exception("Error al obtener el video generado.");
                 }
 
@@ -263,14 +334,12 @@ public class ImageGenerationService
 
             if (status?.Status == "FAILED")
             {
-                _logger.LogError("Video generation failed after {Elapsed}s: {Body}", elapsed, pollBody);
+                _logger.LogError("Video failed at {Elapsed}s: {Body}", elapsed, pollBody);
                 throw new Exception("La generación de video falló. Intenta con una descripción diferente.");
             }
-
-            // IN_QUEUE or IN_PROGRESS — keep polling
         }
 
-        throw new Exception("La generación de video tardó demasiado. Intenta con una descripción más simple.");
+        throw new Exception("La generación de video tardó demasiado (>10min). Intenta con una descripción más simple.");
     }
 }
 

@@ -55,4 +55,7 @@ public class AiDecision
 
     [JsonPropertyName("suggestions")]
     public List<string>? Suggestions { get; set; }
+
+    [JsonPropertyName("aspect_ratio")]
+    public string? AspectRatio { get; set; }
 }
