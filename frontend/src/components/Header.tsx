@@ -1,23 +1,27 @@
 import { GenerationType } from '../types';
 import ThemePicker from './ThemePicker';
+import { AppLang, Translations } from '../i18n/translations';
 
 interface HeaderProps {
   activeTab: GenerationType;
   onTabChange: (tab: GenerationType) => void;
+  lang: AppLang;
+  onLangChange: (lang: AppLang) => void;
+  t: Translations;
 }
 
-const TABS: { id: GenerationType; label: string; emoji: string; color: string }[] = [
-  { id: 'image', label: 'Imágenes', emoji: '🖼️', color: 'bg-violet-600 shadow-violet-600/25' },
-  { id: 'video', label: 'Videos', emoji: '🎬', color: 'bg-fuchsia-600 shadow-fuchsia-600/25' },
-  { id: 'tools', label: 'Herramientas', emoji: '✨', color: 'bg-amber-600 shadow-amber-600/25' },
-  { id: 'transform', label: 'Glow Up', emoji: '💎', color: 'bg-pink-600 shadow-pink-600/25' },
-  { id: 'mirror', label: 'Mi Espejo', emoji: '🪞', color: 'bg-rose-600 shadow-rose-600/25' },
-  { id: 'voice', label: 'Voces', emoji: '🎙️', color: 'bg-emerald-600 shadow-emerald-600/25' },
-  { id: 'recipe', label: 'Recetas', emoji: '🍳', color: 'bg-orange-600 shadow-orange-600/25' },
-  { id: 'projects', label: 'Proyectos', emoji: '📂', color: 'bg-blue-600 shadow-blue-600/25' },
-];
+export default function Header({ activeTab, onTabChange, lang, onLangChange, t }: HeaderProps) {
+  const TABS: { id: GenerationType; label: string; emoji: string; color: string }[] = [
+    { id: 'image', label: t.imagenes, emoji: '🖼️', color: 'bg-violet-600 shadow-violet-600/25' },
+    { id: 'video', label: t.videos, emoji: '🎬', color: 'bg-fuchsia-600 shadow-fuchsia-600/25' },
+    { id: 'tools', label: t.herramientas, emoji: '✨', color: 'bg-amber-600 shadow-amber-600/25' },
+    { id: 'transform', label: t.glowUp, emoji: '💎', color: 'bg-pink-600 shadow-pink-600/25' },
+    { id: 'mirror', label: t.miEspejo, emoji: '🪞', color: 'bg-rose-600 shadow-rose-600/25' },
+    { id: 'voice', label: t.voces, emoji: '🎙️', color: 'bg-emerald-600 shadow-emerald-600/25' },
+    { id: 'recipe', label: t.recetas, emoji: '🍳', color: 'bg-orange-600 shadow-orange-600/25' },
+    { id: 'projects', label: t.proyectos, emoji: '📂', color: 'bg-blue-600 shadow-blue-600/25' },
+  ];
 
-export default function Header({ activeTab, onTabChange }: HeaderProps) {
   return (
     <header className="sticky top-0 z-50">
       <div className="bg-black/70 backdrop-blur-xl border-b border-white/[0.06]">
@@ -32,7 +36,7 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
                 <h1 className="text-white font-bold text-lg leading-tight">
                   Imagen <span className="bg-gradient-to-r from-violet-400 to-fuchsia-400 bg-clip-text text-transparent">AI</span>
                 </h1>
-                <p className="text-gray-500 text-[10px] font-medium tracking-wide uppercase">Studio Creativo</p>
+                <p className="text-gray-500 text-[10px] font-medium tracking-wide uppercase">{t.studioCreativo}</p>
               </div>
             </div>
 
@@ -53,8 +57,8 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
               </div>
             </div>
 
-            {/* Theme picker */}
-            <ThemePicker />
+            {/* Settings */}
+            <ThemePicker lang={lang} onLangChange={onLangChange} />
           </div>
         </div>
       </div>

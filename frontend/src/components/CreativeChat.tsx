@@ -1,5 +1,6 @@
 import { useState, useRef, useCallback, useEffect, DragEvent } from 'react';
 import api from '../services/api';
+import { Translations } from '../i18n/translations';
 
 interface ChatMsg {
   id: string;
@@ -24,9 +25,10 @@ interface ChatApiResponse {
 
 interface Props {
   mode: 'image' | 'video';
+  t: Translations;
 }
 
-export default function CreativeChat({ mode }: Props) {
+export default function CreativeChat({ mode, t }: Props) {
   const [messages, setMessages] = useState<ChatMsg[]>([]);
   const [input, setInput] = useState('');
   const [busy, setBusy] = useState(false);
@@ -47,15 +49,11 @@ export default function CreativeChat({ mode }: Props) {
   useEffect(() => {
     const w: ChatMsg = {
       id: 'welcome', role: 'assistant', ts: new Date(),
-      text: mode === 'image'
-        ? '👋 ¡Bienvenida a tu estudio creativo!\n\nCreo **cualquier cosa** que me pidas — personas, animales, objetos, paisajes — en el estilo que quieras.\n\n🎨 **Estilos disponibles:**\n• 📸 Realista (fotos que parecen reales)\n• 🎌 Anime / Manga\n• 🎬 Animación / Cartoon\n• 🧊 3D / Pixar / Disney\n• 🖌️ Pintura / Acuarela / Dibujo\n\n💡 **Escríbeme como quieras** — simple, detallado, como te salga. Yo te entiendo.'
-        : '👋 ¡Bienvenida al estudio de video!\n\nCreo videos **con sonido** en cualquier estilo e idioma.\n\n🎬 **Lo que puedo hacer:**\n• Videos realistas, anime, animación o 3D\n• Con sonido, música y voces\n• En español, inglés, francés y 10+ idiomas\n• Animar cualquier imagen que generes\n\n⚡ Videos listos en **menos de 2 minutos**',
-      suggestions: mode === 'image'
-        ? ['👩 Una mujer bonita en la playa', '🐱 Un gatito tierno', '🐉 Un dragón de anime épico', '🏙️ Ciudad futurista 3D']
-        : ['🌊 Video de olas con sonido', '🎬 Animar mi última imagen', '💃 Mujer bailando en la ciudad', '🦁 León caminando en la sabana'],
+      text: mode === 'image' ? t.bienvenidaImg : t.bienvenidaVid,
+      suggestions: mode === 'image' ? t.sugerenciasImg : t.sugerenciasVid,
     };
     setMessages([w]);
-  }, [mode]);
+  }, [mode, t]);
 
   const lastMedia = useCallback(() => {
     for (let i = messages.length - 1; i >= 0; i--) {
@@ -71,25 +69,26 @@ export default function CreativeChat({ mode }: Props) {
     })), [messages]);
 
   const pollVideo = useCallback((msgId: string, jobId: string) => {
+    // Poll every 2 seconds for faster response
     const iv = setInterval(async () => {
       try {
         const r = await api.get<{ status: string; url: string; error?: string }>(`/generation/job/${jobId}`);
         if (r.status === 'completed' && r.url) {
           clearInterval(iv); polls.current.delete(msgId);
           setMessages(p => p.map(m => m.id === msgId
-            ? { ...m, mediaUrl: r.url, mediaType: 'video' as const, text: m.text.replace('\n\n⏳ Generando tu video con sonido (~1 min)...', '\n\n✅ ¡Tu video está listo!') }
+            ? { ...m, mediaUrl: r.url, mediaType: 'video' as const, text: m.text.replace(/\n\n⏳.*$/, `\n\n${t.videoListo}`) }
             : m));
         } else if (r.status === 'failed') {
           clearInterval(iv); polls.current.delete(msgId);
           setMessages(p => p.map(m => m.id === msgId
-            ? { ...m, mediaType: undefined, text: m.text.replace('\n\n⏳ Generando tu video con sonido (~1 min)...', `\n\n❌ ${r.error || 'Error. Intenta de nuevo.'}`) }
+            ? { ...m, mediaType: undefined, text: m.text.replace(/\n\n⏳.*$/, `\n\n❌ ${r.error || 'Error. Intenta de nuevo.'}`) }
             : m));
         }
       } catch { /* keep polling */ }
-    }, 4000);
+    }, 2000); // 2s instead of 4s for faster pickup
     polls.current.set(msgId, iv);
     setTimeout(() => { if (polls.current.has(msgId)) { clearInterval(iv); polls.current.delete(msgId); } }, 600_000);
-  }, []);
+  }, [t]);
 
   const send = useCallback(async (overrideText?: string) => {
     const text = overrideText || input.trim();
@@ -132,10 +131,10 @@ export default function CreativeChat({ mode }: Props) {
       setMessages(p => [...p, {
         id: crypto.randomUUID(), role: 'assistant', ts: new Date(),
         text: `⚠️ ${err instanceof Error ? err.message : 'Error de conexión. Intenta de nuevo.'}`,
-        suggestions: ['🔄 Intentar de nuevo'],
+        suggestions: [t.intentarDeNuevo],
       }]);
     } finally { setBusy(false); }
-  }, [input, busy, mode, attachments, convId, lastMedia, history, pollVideo]);
+  }, [input, busy, mode, attachments, convId, lastMedia, history, pollVideo, t]);
 
   const toggleVoice = useCallback(() => {
     if (listening) { recog.current?.stop(); setListening(false); return; }
@@ -176,7 +175,7 @@ export default function CreativeChat({ mode }: Props) {
 
         {isDrag && (
           <div className="fixed inset-0 bg-violet-500/10 border-2 border-dashed border-violet-400 z-50 flex items-center justify-center pointer-events-none">
-            <p className="text-violet-300 text-xl font-medium">📎 Suelta tu imagen aquí</p>
+            <p className="text-violet-300 text-xl font-medium">{t.sueltaTuImagen}</p>
           </div>
         )}
 
@@ -184,7 +183,7 @@ export default function CreativeChat({ mode }: Props) {
           <div key={msg.id} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
             <div className="max-w-[90%] sm:max-w-[80%]">
               <p className={`text-xs text-gray-500 mb-1 ${msg.role === 'user' ? 'text-right' : ''}`}>
-                {msg.role === 'user' ? 'Tú' : '🤖 IA Creativa'}
+                {msg.role === 'user' ? t.tu : t.iaCreativa}
               </p>
 
               <div className={`rounded-2xl px-4 py-3 ${
@@ -210,15 +209,15 @@ export default function CreativeChat({ mode }: Props) {
                     <div className="flex flex-wrap gap-2 mt-2">
                       <button onClick={() => download(msg.mediaUrl!, 'image')}
                         className="text-xs px-3 py-1.5 bg-violet-600/30 text-violet-300 rounded-lg hover:bg-violet-600/50 transition-colors">
-                        📥 Descargar
+                        {t.descargar}
                       </button>
                       <button onClick={() => { setInput('Modifica la imagen: '); inputRef.current?.focus(); }}
                         className="text-xs px-3 py-1.5 bg-gray-700/50 text-gray-300 rounded-lg hover:bg-gray-700 transition-colors">
-                        ✏️ Modificar
+                        {t.modificar}
                       </button>
                       <button onClick={() => send('Crea un video animado con sonido a partir de esta imagen')}
                         className="text-xs px-3 py-1.5 bg-fuchsia-600/30 text-fuchsia-300 rounded-lg hover:bg-fuchsia-600/50 transition-colors">
-                        🎬 Hacer Video
+                        {t.hacerVideo}
                       </button>
                     </div>
                   </div>
@@ -230,7 +229,7 @@ export default function CreativeChat({ mode }: Props) {
                     <div className="flex gap-2 mt-2">
                       <button onClick={() => download(msg.mediaUrl!, 'video')}
                         className="text-xs px-3 py-1.5 bg-violet-600/30 text-violet-300 rounded-lg hover:bg-violet-600/50 transition-colors">
-                        📥 Descargar
+                        {t.descargar}
                       </button>
                     </div>
                   </div>
@@ -240,8 +239,8 @@ export default function CreativeChat({ mode }: Props) {
                   <div className="mt-3 flex items-center gap-3 bg-gray-700/30 rounded-xl p-4">
                     <div className="w-8 h-8 border-2 border-violet-500 border-t-transparent rounded-full animate-spin" />
                     <div className="flex-1">
-                      <p className="text-violet-300 text-sm font-medium">Generando video con sonido...</p>
-                      <p className="text-gray-500 text-xs">⚡ Listo en menos de 2 minutos</p>
+                      <p className="text-violet-300 text-sm font-medium">{t.generandoVideo}</p>
+                      <p className="text-gray-500 text-xs">{t.listoEn2Min}</p>
                       <div className="mt-2 h-1 bg-gray-700 rounded-full overflow-hidden">
                         <div className="h-full bg-gradient-to-r from-violet-500 to-fuchsia-500 rounded-full animate-progress" />
                       </div>
@@ -272,7 +271,7 @@ export default function CreativeChat({ mode }: Props) {
                 <div className="w-2 h-2 bg-violet-400 rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
                 <div className="w-2 h-2 bg-violet-400 rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
               </div>
-              <span className="text-gray-400 text-sm">{mode === 'image' ? 'Creando...' : 'Procesando...'}</span>
+              <span className="text-gray-400 text-sm">{mode === 'image' ? t.creando : t.procesando}</span>
             </div>
           </div>
         )}
@@ -298,7 +297,7 @@ export default function CreativeChat({ mode }: Props) {
       {/* Input bar */}
       <div className="border-t border-gray-800 bg-gray-900/80 backdrop-blur-sm p-3">
         <div className="flex items-end gap-2 max-w-4xl mx-auto">
-          <button onClick={() => fileRef.current?.click()} title="Adjuntar imagen"
+          <button onClick={() => fileRef.current?.click()} title={t.adjuntarImagen}
             className="flex-shrink-0 w-10 h-10 flex items-center justify-center rounded-xl bg-gray-800 text-gray-400 hover:text-white hover:bg-gray-700 transition-colors">
             📎
           </button>
@@ -309,14 +308,14 @@ export default function CreativeChat({ mode }: Props) {
             <textarea ref={inputRef} value={input}
               onChange={e => setInput(e.target.value)}
               onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(); } }}
-              placeholder={mode === 'image' ? 'Describe la imagen que quieres...' : 'Describe el video que quieres...'}
+              placeholder={mode === 'image' ? t.describeLaImagen : t.describeElVideo}
               className="w-full bg-gray-800 border border-gray-700 rounded-xl px-4 py-2.5 text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent resize-none text-sm"
               rows={1} disabled={busy}
-              onInput={e => { const t = e.target as HTMLTextAreaElement; t.style.height = 'auto'; t.style.height = `${Math.min(t.scrollHeight, 120)}px`; }}
+              onInput={e => { const ta = e.target as HTMLTextAreaElement; ta.style.height = 'auto'; ta.style.height = `${Math.min(ta.scrollHeight, 120)}px`; }}
             />
           </div>
 
-          <button onClick={toggleVoice} title="Nota de voz"
+          <button onClick={toggleVoice} title="Voice"
             className={`flex-shrink-0 w-10 h-10 flex items-center justify-center rounded-xl transition-all ${listening ? 'bg-red-500 text-white animate-pulse' : 'bg-gray-800 text-gray-400 hover:text-white hover:bg-gray-700'}`}>
             🎤
           </button>
@@ -327,7 +326,7 @@ export default function CreativeChat({ mode }: Props) {
           </button>
         </div>
         <p className="text-center text-gray-600 text-xs mt-1.5">
-          Escribe, habla 🎤 o sube imágenes 📎 — La IA sigue tu conversación
+          {t.escribHabla}
         </p>
       </div>
     </div>

@@ -190,9 +190,9 @@ public class ImageGenerationService
     }
 
     /// <summary>
-    /// Generate video using FAL's async queue API.
-    /// Fast mode: MiniMax Video-01 with audio (~1-2min)
-    /// Quality mode: Kling (~3-5min)
+    /// Generate video using FAL API.
+    /// Fast mode: MiniMax Video-01-Live — synchronous call (~30-60s)
+    /// Quality mode: Kling via queue (~2-4min)
     /// </summary>
     public async Task<GeneratedMedia> GenerateVideoAsync(GenerationRequest request)
     {
@@ -218,13 +218,14 @@ public class ImageGenerationService
         var referenceUrl = hasReference ? request.ReferenceImages!.First(r => !string.IsNullOrEmpty(r)) : null;
 
         var useFastModel = request.VideoSpeed != "quality";
-        string modelEndpoint;
-        object requestBody;
 
         if (useFastModel)
         {
-            // MiniMax Video-01-Live — fastest with audio (~30-60s)
-            modelEndpoint = "fal-ai/minimax-video/video-01-live";
+            // ═══════════════════════════════════════════════════
+            // FAST MODE: MiniMax Video-01-Live — synchronous (~30-60s)
+            // Use fal.run (synchronous) instead of queue for speed
+            // ═══════════════════════════════════════════════════
+            object requestBody;
             if (hasReference)
             {
                 requestBody = new
@@ -242,12 +243,41 @@ public class ImageGenerationService
                     prompt_optimizer = true
                 };
             }
-            _logger.LogInformation("Using MiniMax Video-01-Live (fast+audio ~1min), hasRef={HasRef}", hasReference);
+
+            _logger.LogInformation("Using MiniMax Video-01-Live SYNC (fast+audio <1min), hasRef={HasRef}", hasReference);
+            var startTime = DateTime.UtcNow;
+
+            // Try synchronous endpoint first (fastest)
+            var response = await SendFalRequest(
+                HttpMethod.Post, "https://fal.run/fal-ai/minimax-video/video-01-live", falKey,
+                new StringContent(JsonSerializer.Serialize(requestBody), Encoding.UTF8, "application/json")
+            );
+
+            var responseBody = await response.Content.ReadAsStringAsync();
+            var elapsed = (DateTime.UtcNow - startTime).TotalSeconds;
+
+            if (response.IsSuccessStatusCode)
+            {
+                _logger.LogInformation("Video completed synchronously in {Seconds}s", elapsed);
+                var videoResult = JsonSerializer.Deserialize<FalVideoResponse>(responseBody);
+                var videoUrl = videoResult?.Video?.Url;
+
+                if (!string.IsNullOrEmpty(videoUrl))
+                    return new GeneratedMedia { Url = videoUrl, Type = "video" };
+            }
+
+            _logger.LogWarning("Sync video failed ({Status}), falling back to queue. Body: {Body}",
+                response.StatusCode, responseBody[..Math.Min(300, responseBody.Length)]);
+
+            // Fallback to queue if sync fails
+            return await GenerateVideoViaQueue("fal-ai/minimax-video/video-01-live", requestBody, falKey);
         }
         else
         {
-            // Kling — highest quality video
-            modelEndpoint = "fal-ai/kling-video/v1/standard/text-to-video";
+            // ═══════════════════════════════════════════════════
+            // QUALITY MODE: Kling via queue
+            // ═══════════════════════════════════════════════════
+            object requestBody;
             if (hasReference)
             {
                 requestBody = new
@@ -267,10 +297,17 @@ public class ImageGenerationService
                     aspect_ratio = "16:9"
                 };
             }
-            _logger.LogInformation("Using Kling quality model, hasRef={HasRef}", hasReference);
-        }
 
-        // Submit to queue
+            _logger.LogInformation("Using Kling quality model via queue, hasRef={HasRef}", hasReference);
+            return await GenerateVideoViaQueue("fal-ai/kling-video/v1/standard/text-to-video", requestBody, falKey);
+        }
+    }
+
+    /// <summary>
+    /// Queue-based video generation with polling (for quality mode or sync fallback)
+    /// </summary>
+    private async Task<GeneratedMedia> GenerateVideoViaQueue(string modelEndpoint, object requestBody, string falKey)
+    {
         var submitResponse = await SendFalRequest(
             HttpMethod.Post, $"https://queue.fal.run/{modelEndpoint}", falKey,
             new StringContent(JsonSerializer.Serialize(requestBody), Encoding.UTF8, "application/json")
@@ -295,19 +332,19 @@ public class ImageGenerationService
 
         _logger.LogInformation("Video queued: id={RequestId}", requestId);
 
-        // Poll for completion (max 10 minutes)
-        var maxWait = TimeSpan.FromMinutes(10);
-        var pollInterval = TimeSpan.FromSeconds(5);
+        // Poll aggressively — every 2 seconds for first minute, then every 4s
+        var maxWait = TimeSpan.FromMinutes(5);
         var startTime = DateTime.UtcNow;
 
         while (DateTime.UtcNow - startTime < maxWait)
         {
+            var elapsed = (DateTime.UtcNow - startTime).TotalSeconds;
+            var pollInterval = elapsed < 60 ? 2000 : 4000; // Faster polling first minute
             await Task.Delay(pollInterval);
 
             var pollResponse = await SendFalRequest(HttpMethod.Get, statusUrl, falKey);
             var pollBody = await pollResponse.Content.ReadAsStringAsync();
             var status = JsonSerializer.Deserialize<FalQueueStatus>(pollBody);
-            var elapsed = (DateTime.UtcNow - startTime).TotalSeconds;
 
             _logger.LogInformation("Video status {Elapsed}s: {Status}", elapsed, status?.Status ?? "unknown");
 
@@ -339,7 +376,7 @@ public class ImageGenerationService
             }
         }
 
-        throw new Exception("La generación de video tardó demasiado (>10min). Intenta con una descripción más simple.");
+        throw new Exception("La generación de video tardó demasiado. Intenta con una descripción más simple.");
     }
 }
 
