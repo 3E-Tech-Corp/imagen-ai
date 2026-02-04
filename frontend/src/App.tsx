@@ -5,6 +5,7 @@ import VoiceGenerator from './components/VoiceGenerator';
 import RecipeGenerator from './components/RecipeGenerator';
 import ProjectManager from './components/ProjectManager';
 import AiTools from './components/AiTools';
+import TransformSection from './components/TransformSection';
 import CreativeChat from './components/CreativeChat';
 import { GenerationType } from './types';
 
@@ -24,11 +25,13 @@ export default function App() {
         ) : activeTab === 'video' ? (
           <CreativeChat mode="video" />
         ) : (
-          <section className={activeTab === 'projects' || activeTab === 'tools' ? 'max-w-5xl mx-auto' : 'max-w-3xl mx-auto'}>
+          <section className={activeTab === 'projects' || activeTab === 'tools' || activeTab === 'transform' ? 'max-w-5xl mx-auto' : 'max-w-3xl mx-auto'}>
             {activeTab === 'projects' ? (
               <ProjectManager />
             ) : activeTab === 'tools' ? (
               <AiTools />
+            ) : activeTab === 'transform' ? (
+              <TransformSection />
             ) : activeTab === 'recipe' ? (
               <RecipeGenerator isGenerating={isGenerating} setIsGenerating={setIsGenerating} />
             ) : activeTab === 'voice' ? (

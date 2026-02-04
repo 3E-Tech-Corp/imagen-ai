@@ -80,6 +80,7 @@ builder.Services.AddSingleton<ProjectService>();
 builder.Services.AddSingleton<AiToolsService>();
 builder.Services.AddSingleton<VideoJobService>();
 builder.Services.AddSingleton<ChatService>();
+builder.Services.AddSingleton<TransformService>();
 
 var app = builder.Build();
 
