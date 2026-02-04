@@ -5,7 +5,7 @@ using ProjectTemplate.Api.Services;
 namespace ProjectTemplate.Api.Controllers;
 
 [ApiController]
-[Route("api/[controller]")]
+[Route("[controller]")]
 public class LiveController : ControllerBase
 {
     private readonly LiveService _liveService;
