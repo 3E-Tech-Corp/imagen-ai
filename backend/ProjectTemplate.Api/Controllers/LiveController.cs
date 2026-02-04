@@ -74,6 +74,55 @@ public class LiveController : ControllerBase
         return success ? Ok(new { message }) : BadRequest(new { message });
     }
 
+    // ═══ LIVE SESSIONS ═══
+    [HttpPost("groups/{id}/start-live")]
+    public IActionResult StartLive(string id, [FromBody] StartLiveRequest req)
+    {
+        var session = _liveService.StartLive(id, req);
+        return session != null ? Ok(session) : NotFound(new { message = "Grupo no encontrado" });
+    }
+
+    [HttpPost("groups/{id}/end-live")]
+    public IActionResult EndLive(string id, [FromQuery] string userId)
+    {
+        return _liveService.EndLive(id, userId) ? Ok() : NotFound();
+    }
+
+    [HttpPost("groups/{id}/join-live")]
+    public IActionResult JoinLive(string id, [FromBody] JoinLiveRequest req)
+    {
+        var session = _liveService.JoinLive(id, req);
+        return session != null ? Ok(session) : NotFound(new { message = "No hay live activo" });
+    }
+
+    [HttpPost("groups/{id}/chat")]
+    public IActionResult SendChat(string id, [FromBody] SendChatRequest req)
+    {
+        var msg = _liveService.SendChat(id, req);
+        return msg != null ? Ok(msg) : NotFound(new { message = "No hay live activo" });
+    }
+
+    [HttpPost("groups/{id}/send-live-gift")]
+    public IActionResult SendLiveGift(string id, [FromBody] SendLiveGiftRequest req)
+    {
+        var (success, message, giftEvent) = _liveService.SendLiveGift(id, req);
+        return success ? Ok(new { message, giftEvent }) : BadRequest(new { message });
+    }
+
+    [HttpGet("groups/{id}/live-state")]
+    public IActionResult GetLiveState(string id, [FromQuery] int? after)
+    {
+        var state = _liveService.GetLiveState(id, after);
+        return state != null ? Ok(state) : NotFound(new { message = "No hay live activo" });
+    }
+
+    [HttpGet("groups/{id}/session")]
+    public IActionResult GetActiveSession(string id)
+    {
+        var session = _liveService.GetActiveSession(id);
+        return session != null ? Ok(session) : NotFound(new { message = "No hay live activo" });
+    }
+
     // ═══ STATIC DATA ═══
     [HttpGet("gifts")]
     public IActionResult GetGifts() => Ok(_liveService.GetGifts());

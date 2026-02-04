@@ -200,6 +200,195 @@ public class LiveService
     }
 
     // ═══════════════════════════════════════════
+    // LIVE SESSIONS
+    // ═══════════════════════════════════════════
+    private readonly ConcurrentDictionary<string, LiveSession> _sessions = new();
+
+    public LiveSession? StartLive(string groupId, StartLiveRequest req)
+    {
+        if (!_groups.TryGetValue(groupId, out var group)) return null;
+        if (group.IsLive) return _sessions.Values.FirstOrDefault(s => s.GroupId == groupId && s.IsActive);
+
+        var session = new LiveSession
+        {
+            GroupId = groupId,
+            Title = string.IsNullOrWhiteSpace(req.Title) ? $"🔴 {group.Name} en vivo!" : req.Title,
+            HostUserId = req.UserId,
+            HostName = group.OwnerName,
+            ActiveViewers = new List<string> { req.UserId }
+        };
+        session.Messages.Add(new LiveChatMessage
+        {
+            UserId = "system",
+            DisplayName = "Sistema",
+            Text = $"🔴 ¡{group.OwnerName} está en vivo!",
+            Type = "system"
+        });
+
+        _sessions[session.Id] = session;
+        group.IsLive = true;
+        group.LiveTitle = session.Title;
+        SaveData();
+        _logger.LogInformation("Live started: {Group} by {Host}", group.Name, group.OwnerName);
+        return session;
+    }
+
+    public bool EndLive(string groupId, string userId)
+    {
+        if (!_groups.TryGetValue(groupId, out var group)) return false;
+
+        var session = _sessions.Values.FirstOrDefault(s => s.GroupId == groupId && s.IsActive);
+        if (session == null) return false;
+
+        session.IsActive = false;
+        session.EndedAt = DateTime.UtcNow;
+        session.Messages.Add(new LiveChatMessage
+        {
+            UserId = "system",
+            DisplayName = "Sistema",
+            Text = "📴 El live ha terminado. ¡Gracias por acompañarnos!",
+            Type = "system"
+        });
+
+        group.IsLive = false;
+        group.LiveTitle = null;
+        SaveData();
+        _logger.LogInformation("Live ended: {Group}", group.Name);
+        return true;
+    }
+
+    public LiveSession? GetActiveSession(string groupId)
+        => _sessions.Values.FirstOrDefault(s => s.GroupId == groupId && s.IsActive);
+
+    public LiveSession? JoinLive(string groupId, JoinLiveRequest req)
+    {
+        var session = _sessions.Values.FirstOrDefault(s => s.GroupId == groupId && s.IsActive);
+        if (session == null) return null;
+
+        if (!session.ActiveViewers.Contains(req.UserId))
+        {
+            session.ActiveViewers.Add(req.UserId);
+            session.ViewerCount = session.ActiveViewers.Count;
+            session.Messages.Add(new LiveChatMessage
+            {
+                UserId = "system",
+                DisplayName = "Sistema",
+                Text = $"👋 {req.DisplayName} se unió al live",
+                Type = "system"
+            });
+        }
+        return session;
+    }
+
+    public LiveChatMessage? SendChat(string groupId, SendChatRequest req)
+    {
+        var session = _sessions.Values.FirstOrDefault(s => s.GroupId == groupId && s.IsActive);
+        if (session == null) return null;
+
+        var msg = new LiveChatMessage
+        {
+            UserId = req.UserId,
+            DisplayName = req.DisplayName,
+            Text = req.Text,
+            Type = "chat"
+        };
+        session.Messages.Add(msg);
+
+        // Keep last 200 messages to prevent memory overflow
+        if (session.Messages.Count > 200)
+            session.Messages = session.Messages.Skip(session.Messages.Count - 200).ToList();
+
+        return msg;
+    }
+
+    public (bool success, string message, LiveGiftEvent? giftEvent) SendLiveGift(string groupId, SendLiveGiftRequest req)
+    {
+        var session = _sessions.Values.FirstOrDefault(s => s.GroupId == groupId && s.IsActive);
+        if (session == null) return (false, "No hay live activo", null);
+
+        var gift = LiveData.Gifts.FirstOrDefault(g => g.Id == req.GiftId);
+        if (gift == null) return (false, "Regalo no encontrado", null);
+
+        var senderWallet = GetOrCreateWallet(req.FromUserId);
+        if (senderWallet.CoinsBalance < gift.Coins)
+            return (false, $"No tienes suficientes coins. Necesitas {gift.Coins:N0}", null);
+
+        var hostWallet = GetOrCreateWallet(session.HostUserId);
+
+        // Deduct from sender
+        senderWallet.CoinsBalance -= gift.Coins;
+        senderWallet.Transactions.Add(new Transaction
+        {
+            Type = "gift_sent",
+            CoinsAmount = -gift.Coins,
+            Description = $"🎁 {gift.Emoji} {gift.Name} en live de {session.HostName}"
+        });
+
+        // 50/50 split
+        var totalUsd = LiveData.CoinsToUsd(gift.Coins);
+        var streamerShare = Math.Round(totalUsd / 2, 2);
+        hostWallet.EarningsBalance += streamerShare;
+        hostWallet.TotalEarned += streamerShare;
+        hostWallet.Transactions.Add(new Transaction
+        {
+            Type = "gift_received",
+            CoinsAmount = gift.Coins,
+            MoneyAmount = streamerShare,
+            Description = $"🎁 {gift.Emoji} {gift.Name} de {req.FromName} en live — +${streamerShare:F2}"
+        });
+
+        // Record gift event
+        var giftEvent = new LiveGiftEvent
+        {
+            FromUserId = req.FromUserId,
+            FromName = req.FromName,
+            GiftId = gift.Id,
+            GiftName = gift.Name,
+            GiftEmoji = gift.Emoji,
+            Coins = gift.Coins
+        };
+        session.GiftEvents.Add(giftEvent);
+        session.TotalGiftsCoins += gift.Coins;
+
+        // Add chat message for the gift
+        session.Messages.Add(new LiveChatMessage
+        {
+            UserId = req.FromUserId,
+            DisplayName = req.FromName,
+            Text = $"🎁 envió {gift.Emoji} {gift.Name} ({gift.Coins:N0} coins)",
+            Type = "gift"
+        });
+
+        SaveData();
+        return (true, $"¡{gift.Emoji} {gift.Name} enviado!", giftEvent);
+    }
+
+    public object? GetLiveState(string groupId, int? afterMessageIndex)
+    {
+        var session = _sessions.Values.FirstOrDefault(s => s.GroupId == groupId && s.IsActive);
+        if (session == null) return null;
+
+        var idx = afterMessageIndex ?? 0;
+        var newMessages = session.Messages.Skip(idx).ToList();
+        var recentGifts = session.GiftEvents.OrderByDescending(g => g.CreatedAt).Take(5).ToList();
+
+        return new
+        {
+            session.Id,
+            session.Title,
+            session.HostName,
+            session.HostUserId,
+            viewerCount = session.ActiveViewers.Count,
+            session.IsActive,
+            session.TotalGiftsCoins,
+            messages = newMessages,
+            totalMessages = session.Messages.Count,
+            recentGifts,
+            startedAt = session.StartedAt
+        };
+    }
+
+    // ═══════════════════════════════════════════
     // STATIC DATA
     // ═══════════════════════════════════════════
     public List<Gift> GetGifts() => LiveData.Gifts;

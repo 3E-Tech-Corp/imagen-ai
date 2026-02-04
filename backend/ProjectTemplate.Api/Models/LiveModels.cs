@@ -143,3 +143,71 @@ public class Gift
     public string Emoji { get; set; } = string.Empty;
     public int Coins { get; set; }
 }
+
+// ═══════════════════════════════════════════
+// LIVE ROOM & CHAT
+// ═══════════════════════════════════════════
+public class LiveSession
+{
+    public string Id { get; set; } = Guid.NewGuid().ToString();
+    public string GroupId { get; set; } = string.Empty;
+    public string Title { get; set; } = string.Empty;
+    public string HostUserId { get; set; } = string.Empty;
+    public string HostName { get; set; } = string.Empty;
+    public DateTime StartedAt { get; set; } = DateTime.UtcNow;
+    public DateTime? EndedAt { get; set; }
+    public bool IsActive { get; set; } = true;
+    public int ViewerCount { get; set; } = 0;
+    public List<string> ActiveViewers { get; set; } = new();
+    public List<LiveChatMessage> Messages { get; set; } = new();
+    public List<LiveGiftEvent> GiftEvents { get; set; } = new();
+    public int TotalGiftsCoins { get; set; } = 0;
+}
+
+public class LiveChatMessage
+{
+    public string Id { get; set; } = Guid.NewGuid().ToString();
+    public string UserId { get; set; } = string.Empty;
+    public string DisplayName { get; set; } = string.Empty;
+    public string Text { get; set; } = string.Empty;
+    public string? Type { get; set; } = "chat"; // "chat", "system", "gift"
+    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+}
+
+public class LiveGiftEvent
+{
+    public string Id { get; set; } = Guid.NewGuid().ToString();
+    public string FromUserId { get; set; } = string.Empty;
+    public string FromName { get; set; } = string.Empty;
+    public string GiftId { get; set; } = string.Empty;
+    public string GiftName { get; set; } = string.Empty;
+    public string GiftEmoji { get; set; } = string.Empty;
+    public int Coins { get; set; }
+    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+}
+
+public class StartLiveRequest
+{
+    public string UserId { get; set; } = string.Empty;
+    public string Title { get; set; } = string.Empty;
+}
+
+public class SendChatRequest
+{
+    public string UserId { get; set; } = string.Empty;
+    public string DisplayName { get; set; } = string.Empty;
+    public string Text { get; set; } = string.Empty;
+}
+
+public class JoinLiveRequest
+{
+    public string UserId { get; set; } = string.Empty;
+    public string DisplayName { get; set; } = string.Empty;
+}
+
+public class SendLiveGiftRequest
+{
+    public string FromUserId { get; set; } = string.Empty;
+    public string FromName { get; set; } = string.Empty;
+    public string GiftId { get; set; } = string.Empty;
+}

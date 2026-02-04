@@ -109,6 +109,25 @@ body {
 .no-scrollbar::-webkit-scrollbar { display: none; }
 .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
 
+/* Live — floating gift animation */
+@keyframes float-up {
+  0% { opacity: 0; transform: translateY(0) scale(0.5); }
+  15% { opacity: 1; transform: translateY(-30px) scale(1.2); }
+  50% { opacity: 1; transform: translateY(-120px) scale(1); }
+  100% { opacity: 0; transform: translateY(-250px) scale(0.7); }
+}
+@keyframes bounce-gentle {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-8px); }
+}
+@keyframes pulse-slow {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.85; transform: scale(1.05); }
+}
+.animate-float-up { animation: float-up 3s ease-out forwards; }
+.animate-bounce-gentle { animation: bounce-gentle 1s ease-in-out infinite; }
+.animate-pulse-slow { animation: pulse-slow 3s ease-in-out infinite; }
+
 ::selection { background: hsla(var(--accent-h), 60%, 50%, 0.3); color: white; }
 button { -webkit-tap-highlight-color: transparent; }
 *:focus-visible { outline: 2px solid hsla(var(--accent-h), 60%, 50%, 0.5); outline-offset: 2px; border-radius: 8px; }
