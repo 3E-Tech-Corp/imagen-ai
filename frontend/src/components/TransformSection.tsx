@@ -217,7 +217,7 @@ export default function TransformSection() {
     setError('');
     setResult(null);
     try {
-      const res = await api.post<TransformResult>('/api/transform/analyze', {
+      const res = await api.post<TransformResult>('/transform/analyze', {
         imageUrl: image,
         age: age ? parseInt(age) : undefined,
         goal: goal || undefined,

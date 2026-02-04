@@ -5,7 +5,7 @@ using ProjectTemplate.Api.Services;
 namespace ProjectTemplate.Api.Controllers;
 
 [ApiController]
-[Route("api/transform")]
+[Route("[controller]")]
 public class TransformController : ControllerBase
 {
     private readonly TransformService _transformService;
