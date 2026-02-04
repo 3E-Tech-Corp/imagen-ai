@@ -309,6 +309,16 @@ function InfoLine({ label, value, accentColor = 'text-pink-400' }: { label: stri
 }
 
 // ── Main Component ─────────────────────────────────────────────────────
+// ── History types ──────────────────────────────────────────────────────
+interface HistoryEntry {
+  id: string;
+  date: string;
+  faceShape: string;
+  skinTone: string;
+  greeting: string;
+  goal: string;
+}
+
 export default function TransformSection() {
   const [image, setImage] = useState<string | null>(null);
   const [age, setAge] = useState('');
@@ -318,8 +328,34 @@ export default function TransformSection() {
   const [error, setError] = useState('');
   const [result, setResult] = useState<TransformResult | null>(null);
   const [dragOver, setDragOver] = useState(false);
+  const [history, setHistory] = useState<HistoryEntry[]>([]);
   const fileRef = useRef<HTMLInputElement>(null);
   const cameraRef = useRef<HTMLInputElement>(null);
+
+  // Load history on mount
+  useState(() => {
+    api.get<HistoryEntry[]>('/transform/history')
+      .then(h => setHistory(h))
+      .catch(() => {});
+  });
+
+  const loadSavedAnalysis = async (id: string) => {
+    setLoading(true); setError('');
+    try {
+      const saved = await api.get<TransformResult>(`/transform/history/${id}`);
+      setResult(saved);
+      setImage('saved'); // Mark as loaded from history
+    } catch {
+      setError('Error al cargar el análisis guardado.');
+    } finally { setLoading(false); }
+  };
+
+  const deleteAnalysis = async (id: string) => {
+    try {
+      await fetch(`/api/transform/history/${id}`, { method: 'DELETE' });
+      setHistory(prev => prev.filter(h => h.id !== id));
+    } catch { /* silent */ }
+  };
 
   const handleFile = useCallback((file: File) => {
     if (!file.type.startsWith('image/')) { setError('Por favor, sube una imagen (JPG, PNG, WebP).'); return; }
@@ -357,12 +393,18 @@ export default function TransformSection() {
         personality: personality || undefined,
       }, 300_000); // 5 min timeout — AI analysis of 14 sections takes time
       setResult(res);
+      // Refresh history
+      api.get<HistoryEntry[]>('/transform/history').then(h => setHistory(h)).catch(() => {});
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Error al analizar. Intenta de nuevo.');
     } finally { setLoading(false); }
   };
 
-  const reset = () => { setImage(null); setResult(null); setError(''); setAge(''); setGoal(''); setPersonality(''); };
+  const reset = () => {
+    setImage(null); setResult(null); setError(''); setAge(''); setGoal(''); setPersonality('');
+    // Refresh history when going back
+    api.get<HistoryEntry[]>('/transform/history').then(h => setHistory(h)).catch(() => {});
+  };
 
   // ── Render ───────────────────────────────────────────────────────────
   return (
@@ -376,6 +418,68 @@ export default function TransformSection() {
           Sube tu selfie y recibe un análisis completo: colorimetría, moda, cabello, gua sha, drenaje linfático, glow up, técnicas faciales, redes sociales, autoestima, crecimiento personal y un mensaje del día hecho para ti.
         </p>
       </div>
+
+      {/* ── Saved Analyses History ──────────────────────────────── */}
+      {!result && !loading && history.length > 0 && (
+        <div className="max-w-3xl mx-auto">
+          <div className="flex items-center justify-between mb-3">
+            <h3 className="text-white font-semibold text-sm flex items-center gap-2">
+              <span>📋</span> Mis Análisis Guardados
+            </h3>
+            <span className="text-gray-500 text-xs">{history.length} análisis</span>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            {history.slice(0, 6).map(entry => (
+              <div key={entry.id}
+                className="bg-gray-800/50 border border-gray-700/50 rounded-xl p-4 hover:border-pink-500/40 transition-all group">
+                <div className="flex items-start justify-between">
+                  <button onClick={() => loadSavedAnalysis(entry.id)} className="flex-1 text-left">
+                    <div className="flex items-center gap-2 mb-2">
+                      <span className="text-lg">🪞</span>
+                      <span className="text-white text-sm font-medium">
+                        {new Date(entry.date).toLocaleDateString('es', { day: 'numeric', month: 'short', year: 'numeric' })}
+                      </span>
+                    </div>
+                    <div className="flex flex-wrap gap-1.5 mb-2">
+                      {entry.faceShape && (
+                        <span className="bg-pink-500/15 text-pink-300 text-xs rounded-full px-2 py-0.5">
+                          Rostro: {entry.faceShape}
+                        </span>
+                      )}
+                      {entry.skinTone && (
+                        <span className="bg-violet-500/15 text-violet-300 text-xs rounded-full px-2 py-0.5">
+                          Tono: {entry.skinTone}
+                        </span>
+                      )}
+                      {entry.goal && (
+                        <span className="bg-blue-500/15 text-blue-300 text-xs rounded-full px-2 py-0.5">
+                          {entry.goal}
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-gray-400 text-xs line-clamp-2">{entry.greeting}</p>
+                  </button>
+                  <button onClick={(e) => { e.stopPropagation(); deleteAnalysis(entry.id); }}
+                    className="text-gray-600 hover:text-red-400 p-1 opacity-0 group-hover:opacity-100 transition-all"
+                    title="Eliminar">
+                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+          {history.length > 6 && (
+            <p className="text-gray-500 text-xs text-center mt-2">
+              Mostrando los 6 más recientes de {history.length} análisis
+            </p>
+          )}
+          <div className="border-t border-gray-700/50 mt-4 pt-4">
+            <p className="text-gray-500 text-xs text-center">O haz un nuevo análisis 👇</p>
+          </div>
+        </div>
+      )}
 
       {/* ── Upload Area ──────────────────────────────────────────── */}
       {!result && (
