@@ -49,11 +49,11 @@ export default function CreativeChat({ mode }: Props) {
     const w: ChatMsg = {
       id: 'welcome', role: 'assistant', ts: new Date(),
       text: mode === 'image'
-        ? '👋 ¡Bienvenida al estudio de imágenes!\n\nCreo exactamente lo que me pidas — personas, animales, objetos, paisajes — todo en calidad profesional.\n\n💡 **Tips:**\n• Sé específica: colores, poses, fondos\n• Pide "cuerpo completo" si lo necesitas\n• Sube una foto para editarla\n• Puedo modificar cualquier imagen generada'
-        : '👋 ¡Bienvenida al estudio de video!\n\nCreo videos con sonido y en el idioma que elijas.\n\n💡 **Tips:**\n• Describe la escena y el movimiento\n• Sube una imagen para animarla\n• Pide "con sonido" o "que hable en español"\n• Videos de 5-10 segundos en alta calidad',
+        ? '👋 ¡Bienvenida a tu estudio creativo!\n\nCreo **cualquier cosa** que me pidas — personas, animales, objetos, paisajes, logos — en el estilo que quieras.\n\n🎨 **Estilos disponibles:**\n• 📸 Realista (fotos que parecen reales)\n• 🎌 Anime / Manga\n• 🎬 Animación / Cartoon\n• 🧊 3D / Pixar / Disney\n• 🖌️ Pintura / Acuarela / Dibujo\n\n💡 **Escríbeme como quieras** — simple, detallado, como te salga. Yo te entiendo.'
+        : '👋 ¡Bienvenida al estudio de video!\n\nCreo videos **con sonido** en cualquier estilo e idioma.\n\n🎬 **Lo que puedo hacer:**\n• Videos realistas, anime, animación o 3D\n• Con sonido, música y voces\n• En español, inglés, francés y 10+ idiomas\n• Animar cualquier imagen que generes\n\n💡 **Escríbeme como quieras** — yo entiendo y creo lo que pides.',
       suggestions: mode === 'image'
-        ? ['👩 Retrato profesional de una mujer', '🐱 Un gato persa blanco realista', '🏙️ Ciudad futurista de noche', '💍 Anillo de diamantes']
-        : ['🌊 Video de olas en la playa con sonido', '🎬 Animar una foto con movimiento', '🌃 Video cinemático de ciudad de noche', '🦁 León caminando en la sabana'],
+        ? ['👩 Una mujer bonita en la playa', '🐱 Un gatito tierno', '🐉 Un dragón de anime épico', '🏙️ Ciudad futurista 3D']
+        : ['🌊 Video de olas con sonido', '🎬 Animar mi última imagen', '💃 Mujer bailando en la ciudad', '🦁 León caminando en la sabana'],
     };
     setMessages([w]);
   }, [mode]);
