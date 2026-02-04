@@ -7,6 +7,7 @@ import ProjectManager from './components/ProjectManager';
 import AiTools from './components/AiTools';
 import TransformSection from './components/TransformSection';
 import CreativeChat from './components/CreativeChat';
+import MirrorChat from './components/MirrorChat';
 import { GenerationType } from './types';
 
 export default function App() {
@@ -24,6 +25,8 @@ export default function App() {
           <CreativeChat mode="image" />
         ) : activeTab === 'video' ? (
           <CreativeChat mode="video" />
+        ) : activeTab === 'mirror' ? (
+          <MirrorChat />
         ) : (
           <section className={activeTab === 'projects' || activeTab === 'tools' || activeTab === 'transform' ? 'max-w-5xl mx-auto' : 'max-w-3xl mx-auto'}>
             {activeTab === 'projects' ? (

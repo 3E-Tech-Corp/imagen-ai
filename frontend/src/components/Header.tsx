@@ -10,6 +10,7 @@ const TABS: { id: GenerationType; label: string; emoji: string; color: string }[
   { id: 'video', label: 'Videos', emoji: '🎬', color: 'bg-fuchsia-600 shadow-fuchsia-600/25' },
   { id: 'tools', label: 'Herramientas', emoji: '🛠️', color: 'bg-amber-600 shadow-amber-600/25' },
   { id: 'transform', label: 'Transformación', emoji: '✨', color: 'bg-pink-600 shadow-pink-600/25' },
+  { id: 'mirror', label: 'Mi Espejo', emoji: '🪞', color: 'bg-rose-600 shadow-rose-600/25' },
   { id: 'voice', label: 'Voces', emoji: '🎙️', color: 'bg-emerald-600 shadow-emerald-600/25' },
   { id: 'recipe', label: 'Recetas', emoji: '🍳', color: 'bg-orange-600 shadow-orange-600/25' },
   { id: 'projects', label: 'Proyectos', emoji: '📁', color: 'bg-blue-600 shadow-blue-600/25' },
