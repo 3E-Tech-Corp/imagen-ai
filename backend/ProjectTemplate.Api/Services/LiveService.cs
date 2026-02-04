@@ -9,6 +9,7 @@ public class LiveService
     private readonly ILogger<LiveService> _logger;
     private readonly ConcurrentDictionary<string, LiveGroup> _groups = new();
     private readonly ConcurrentDictionary<string, Wallet> _wallets = new();
+    private readonly ConcurrentDictionary<string, LiveSession> _sessions = new();
     private readonly string _dataDir;
 
     public LiveService(ILogger<LiveService> logger, IWebHostEnvironment env)
@@ -223,8 +224,6 @@ public class LiveService
     // ═══════════════════════════════════════════
     // LIVE SESSIONS
     // ═══════════════════════════════════════════
-    private readonly ConcurrentDictionary<string, LiveSession> _sessions = new();
-
     public LiveSession? StartLive(string groupId, StartLiveRequest req)
     {
         if (!_groups.TryGetValue(groupId, out var group)) return null;

@@ -123,6 +123,10 @@ public class LiveController : ControllerBase
         return session != null ? Ok(session) : NotFound(new { message = "No hay live activo" });
     }
 
+    // ═══ DIAGNOSTIC ═══
+    [HttpGet("ping")]
+    public IActionResult Ping() => Ok(new { status = "live-ok", time = DateTime.UtcNow });
+
     // ═══ STATIC DATA ═══
     [HttpGet("gifts")]
     public IActionResult GetGifts() => Ok(_liveService.GetGifts());
