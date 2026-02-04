@@ -181,7 +181,7 @@ export default function PromptInput({ type, onGenerate, isGenerating }: PromptIn
             onChange={(e) => setPrompt(e.target.value)}
             placeholder={placeholders}
             rows={4}
-            className="w-full px-5 py-4 pr-14 bg-gray-800 border border-gray-700 rounded-2xl text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent resize-none text-lg"
+            className="w-full px-5 py-4 pr-14 bg-gray-800 border border-gray-700 rounded-2xl text-white placeholder-gray-500 focus:outline-none focus:ring-2 accent-ring-focus focus:border-transparent resize-none text-lg"
           />
           {/* Voice input button - bottom right of textarea */}
           <div className="absolute bottom-3 right-3">
@@ -220,8 +220,8 @@ export default function PromptInput({ type, onGenerate, isGenerating }: PromptIn
                         onClick={() => setStyle(s.value)}
                         className={`px-3 py-2 rounded-xl text-xs font-medium transition-all ${
                           style === s.value
-                            ? 'bg-violet-600 text-white shadow-lg shadow-violet-600/25'
-                            : 'bg-gray-900 text-gray-400 border border-gray-700 hover:border-violet-500 hover:text-white'
+                            ? 'accent-bg text-white shadow-lg accent-shadow'
+                            : 'bg-gray-900 text-gray-400 border border-gray-700 accent-border-hover hover:text-white'
                         }`}
                       >
                         {s.emoji} {s.label}
@@ -240,10 +240,10 @@ export default function PromptInput({ type, onGenerate, isGenerating }: PromptIn
                       onClick={() => referenceImages.length < 5 && fileInputRef.current?.click()}
                       className={`border-2 border-dashed rounded-xl p-4 text-center cursor-pointer transition-all ${
                         isDragging
-                          ? 'border-violet-500 bg-violet-500/10'
+                          ? 'accent-border accent-bg/10'
                           : referenceImages.length >= 5
                             ? 'border-gray-700 bg-gray-900/30 cursor-not-allowed opacity-50'
-                            : 'border-gray-700 hover:border-violet-500/50 hover:bg-gray-900/50'
+                            : 'border-gray-700 accent-border-hover/50 hover:bg-gray-900/50'
                       }`}
                     >
                       <input
@@ -317,7 +317,7 @@ export default function PromptInput({ type, onGenerate, isGenerating }: PromptIn
                           <button
                             key={e.value} type="button" onClick={() => setEnvironment(e.value)}
                             className={`px-3 py-1.5 rounded-lg text-xs font-medium ${
-                              environment === e.value ? 'bg-violet-600 text-white' : 'bg-gray-900 text-gray-400 border border-gray-700 hover:text-white'
+                              environment === e.value ? 'accent-bg text-white' : 'bg-gray-900 text-gray-400 border border-gray-700 hover:text-white'
                             }`}
                           >
                             {e.emoji} {e.label}
@@ -332,7 +332,7 @@ export default function PromptInput({ type, onGenerate, isGenerating }: PromptIn
                           <button
                             key={t.value} type="button" onClick={() => setTimePeriod(t.value)}
                             className={`px-3 py-1.5 rounded-lg text-xs font-medium ${
-                              timePeriod === t.value ? 'bg-violet-600 text-white' : 'bg-gray-900 text-gray-400 border border-gray-700 hover:text-white'
+                              timePeriod === t.value ? 'accent-bg text-white' : 'bg-gray-900 text-gray-400 border border-gray-700 hover:text-white'
                             }`}
                           >
                             {t.emoji} {t.label}
@@ -347,7 +347,7 @@ export default function PromptInput({ type, onGenerate, isGenerating }: PromptIn
                           <button
                             key={l.value} type="button" onClick={() => setLighting(l.value)}
                             className={`px-3 py-1.5 rounded-lg text-xs font-medium ${
-                              lighting === l.value ? 'bg-violet-600 text-white' : 'bg-gray-900 text-gray-400 border border-gray-700 hover:text-white'
+                              lighting === l.value ? 'accent-bg text-white' : 'bg-gray-900 text-gray-400 border border-gray-700 hover:text-white'
                             }`}
                           >
                             {l.emoji} {l.label}
@@ -365,8 +365,8 @@ export default function PromptInput({ type, onGenerate, isGenerating }: PromptIn
                         key={e.value} type="button" onClick={() => setEmotion(e.value)}
                         className={`px-3 py-2 rounded-xl text-xs font-medium transition-all ${
                           emotion === e.value
-                            ? 'bg-violet-600 text-white shadow-lg'
-                            : 'bg-gray-900 text-gray-400 border border-gray-700 hover:border-violet-500 hover:text-white'
+                            ? 'accent-bg text-white shadow-lg'
+                            : 'bg-gray-900 text-gray-400 border border-gray-700 accent-border-hover hover:text-white'
                         }`}
                       >
                         {e.emoji} {e.label}
@@ -384,7 +384,7 @@ export default function PromptInput({ type, onGenerate, isGenerating }: PromptIn
                           <button
                             key={q.value} type="button" onClick={() => setQuality(q.value)}
                             className={`px-3 py-2 rounded-xl text-xs font-medium ${
-                              quality === q.value ? 'bg-violet-600 text-white' : 'bg-gray-900 text-gray-400 border border-gray-700 hover:text-white'
+                              quality === q.value ? 'accent-bg text-white' : 'bg-gray-900 text-gray-400 border border-gray-700 hover:text-white'
                             }`}
                           >
                             {q.emoji} {q.label}
@@ -399,7 +399,7 @@ export default function PromptInput({ type, onGenerate, isGenerating }: PromptIn
                           <button
                             key={u.value} type="button" onClick={() => setUseCase(u.value)}
                             className={`px-3 py-1.5 rounded-lg text-xs font-medium ${
-                              useCase === u.value ? 'bg-violet-600 text-white' : 'bg-gray-900 text-gray-400 border border-gray-700 hover:text-white'
+                              useCase === u.value ? 'accent-bg text-white' : 'bg-gray-900 text-gray-400 border border-gray-700 hover:text-white'
                             }`}
                           >
                             {u.emoji} {u.label}
@@ -450,7 +450,7 @@ export default function PromptInput({ type, onGenerate, isGenerating }: PromptIn
                         value={negativePrompt}
                         onChange={(e) => setNegativePrompt(e.target.value)}
                         placeholder="Ej: borroso, baja calidad, deformado, texto, marca de agua..."
-                        className="w-full px-4 py-3 bg-gray-900 border border-gray-700 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-violet-500 text-sm"
+                        className="w-full px-4 py-3 bg-gray-900 border border-gray-700 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:ring-2 accent-ring-focus text-sm"
                       />
                     </div>
                   </div>
@@ -469,7 +469,7 @@ export default function PromptInput({ type, onGenerate, isGenerating }: PromptIn
           isGenerating
             ? 'bg-gray-700 text-gray-400 cursor-not-allowed'
             : type === 'image'
-              ? 'bg-gradient-to-r from-violet-600 to-fuchsia-600 text-white hover:from-violet-500 hover:to-fuchsia-500 shadow-lg shadow-violet-600/25'
+              ? 'bg-gradient-to-r accent-gradient text-white hover:from-violet-500 hover:to-fuchsia-500 shadow-lg accent-shadow'
               : 'bg-gradient-to-r from-fuchsia-600 to-pink-600 text-white hover:from-fuchsia-500 hover:to-pink-500 shadow-lg shadow-fuchsia-600/25'
         }`}
       >

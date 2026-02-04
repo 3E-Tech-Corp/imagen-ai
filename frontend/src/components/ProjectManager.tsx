@@ -262,7 +262,7 @@ export default function ProjectManager() {
           </div>
           <button
             onClick={() => setShowCreateForm(!showCreateForm)}
-            className="px-4 py-2 bg-violet-600 text-white rounded-xl text-sm font-medium hover:bg-violet-500 transition-colors"
+            className="px-4 py-2 accent-bg text-white rounded-xl text-sm font-medium hover:accent-bg transition-colors"
           >
             ➕ Nuevo Proyecto
           </button>
@@ -276,7 +276,7 @@ export default function ProjectManager() {
               value={newName}
               onChange={(e) => setNewName(e.target.value)}
               placeholder="Nombre del proyecto..."
-              className="w-full px-4 py-3 bg-gray-900 border border-gray-700 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-violet-500"
+              className="w-full px-4 py-3 bg-gray-900 border border-gray-700 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:ring-2 accent-ring-focus"
               autoFocus
             />
             <input
@@ -284,7 +284,7 @@ export default function ProjectManager() {
               value={newDescription}
               onChange={(e) => setNewDescription(e.target.value)}
               placeholder="Descripción (opcional)..."
-              className="w-full px-4 py-3 bg-gray-900 border border-gray-700 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-violet-500"
+              className="w-full px-4 py-3 bg-gray-900 border border-gray-700 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:ring-2 accent-ring-focus"
             />
             <div className="flex flex-wrap gap-2">
               {[
@@ -299,7 +299,7 @@ export default function ProjectManager() {
                   onClick={() => setNewCategory(cat.value)}
                   className={`px-3 py-1.5 rounded-lg text-xs font-medium ${
                     newCategory === cat.value
-                      ? 'bg-violet-600 text-white'
+                      ? 'accent-bg text-white'
                       : 'bg-gray-900 text-gray-400 border border-gray-700'
                   }`}
                 >
@@ -311,7 +311,7 @@ export default function ProjectManager() {
               <button
                 type="submit"
                 disabled={!newName.trim()}
-                className="px-6 py-2 bg-violet-600 text-white rounded-xl text-sm font-medium hover:bg-violet-500 disabled:opacity-50"
+                className="px-6 py-2 accent-bg text-white rounded-xl text-sm font-medium hover:accent-bg disabled:opacity-50"
               >
                 Crear
               </button>
@@ -360,8 +360,8 @@ export default function ProjectManager() {
               <button
                 key={project.id}
                 onClick={() => loadProject(project.id)}
-                className={`bg-gray-800/50 rounded-2xl border overflow-hidden hover:border-violet-500/50 transition-all text-left group ${
-                  isAutoSave ? 'border-violet-500/40 ring-1 ring-violet-500/20' : 'border-gray-700/50'
+                className={`bg-gray-800/50 rounded-2xl border overflow-hidden accent-border-hover/50 transition-all text-left group ${
+                  isAutoSave ? 'accent-border/40 ring-1 ring-violet-500/20' : 'border-gray-700/50'
                 }`}
               >
                 {/* Cover */}
@@ -379,7 +379,7 @@ export default function ProjectManager() {
                     <span className="text-white text-xs">{project.itemCount} items</span>
                   </div>
                   {isAutoSave && (
-                    <div className="absolute top-2 left-2 bg-violet-600/90 px-2 py-0.5 rounded-lg">
+                    <div className="absolute top-2 left-2 accent-bg/90 px-2 py-0.5 rounded-lg">
                       <span className="text-white text-xs font-medium">✨ Auto-guardado</span>
                     </div>
                   )}
@@ -439,7 +439,7 @@ export default function ProjectManager() {
           <label className={`px-4 py-2 rounded-xl text-sm font-medium cursor-pointer transition-colors ${
             uploading
               ? 'bg-gray-700 text-gray-400'
-              : 'bg-violet-600 text-white hover:bg-violet-500'
+              : 'accent-bg text-white hover:accent-bg'
           }`}>
             {uploading ? 'Subiendo...' : '📤 Subir Referencia'}
             <input
@@ -486,7 +486,7 @@ export default function ProjectManager() {
               <div key={group.parentId} className="bg-gray-800/30 rounded-2xl border border-gray-700/30 p-4">
                 {/* Group header */}
                 <div className="flex items-center gap-2 mb-3">
-                  <span className="text-violet-400 text-sm font-medium">🔄 Iteraciones</span>
+                  <span className="accent-text text-sm font-medium">🔄 Iteraciones</span>
                   <span className="text-gray-500 text-xs">
                     Versión 1 {group.variations.map((_, i) => `→ ${i + 2}`).join(' ')}
                   </span>
@@ -589,7 +589,7 @@ export default function ProjectManager() {
                 value={recreatePrompt}
                 onChange={(e) => setRecreatePrompt(e.target.value)}
                 rows={3}
-                className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-violet-500 resize-none text-sm"
+                className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:ring-2 accent-ring-focus resize-none text-sm"
               />
             </div>
 
@@ -604,8 +604,8 @@ export default function ProjectManager() {
                     onClick={() => setRecreateStyle(s.value)}
                     className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
                       recreateStyle === s.value
-                        ? 'bg-violet-600 text-white shadow-lg'
-                        : 'bg-gray-800 text-gray-400 border border-gray-700 hover:border-violet-500'
+                        ? 'accent-bg text-white shadow-lg'
+                        : 'bg-gray-800 text-gray-400 border border-gray-700 accent-border-hover'
                     }`}
                   >
                     {s.emoji} {s.label}
@@ -629,7 +629,7 @@ export default function ProjectManager() {
                 className={`flex-1 py-3 rounded-xl text-sm font-bold transition-all ${
                   isRecreating
                     ? 'bg-gray-700 text-gray-400 cursor-not-allowed'
-                    : 'bg-gradient-to-r from-violet-600 to-fuchsia-600 text-white hover:from-violet-500 hover:to-fuchsia-500 shadow-lg shadow-violet-600/25'
+                    : 'bg-gradient-to-r accent-gradient text-white hover:from-violet-500 hover:to-fuchsia-500 shadow-lg accent-shadow'
                 }`}
               >
                 {isRecreating ? (
@@ -704,8 +704,8 @@ function CreationCard({
         {/* Type badge */}
         <div className="absolute top-2 left-2">
           <span className={`px-2 py-1 rounded-lg text-xs font-medium ${
-            item.type === 'image' ? 'bg-violet-600/80 text-white'
-              : item.type === 'video' ? 'bg-fuchsia-600/80 text-white'
+            item.type === 'image' ? 'accent-bg/80 text-white'
+              : item.type === 'video' ? 'accent-bg/80 text-white'
               : 'bg-emerald-600/80 text-white'
           }`}>
             {item.type === 'image' ? '🖼️' : item.type === 'video' ? '🎬' : '🎙️'}
@@ -717,8 +717,8 @@ function CreationCard({
           <div className="absolute bottom-2 left-2">
             <span className={`px-2 py-1 rounded-lg text-xs font-bold ${
               isParent
-                ? 'bg-violet-600 text-white'
-                : 'bg-fuchsia-600/90 text-white'
+                ? 'accent-bg text-white'
+                : 'accent-bg/90 text-white'
             }`}>
               V{iterationBadge}
             </span>
@@ -729,7 +729,7 @@ function CreationCard({
         {item.type !== 'voice' && (
           <button
             onClick={(e) => { e.stopPropagation(); onRecreate(item); }}
-            className="absolute bottom-2 right-2 px-2.5 py-1.5 bg-violet-600/90 text-white rounded-lg text-xs font-medium opacity-0 group-hover:opacity-100 transition-opacity hover:bg-violet-500 shadow-lg"
+            className="absolute bottom-2 right-2 px-2.5 py-1.5 accent-bg/90 text-white rounded-lg text-xs font-medium opacity-0 group-hover:opacity-100 transition-opacity hover:accent-bg shadow-lg"
           >
             🔄 Recrear
           </button>

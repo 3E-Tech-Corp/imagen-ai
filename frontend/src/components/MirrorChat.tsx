@@ -164,7 +164,7 @@ export default function MirrorChat() {
     <div className="flex flex-col h-[calc(100vh-4rem)]">
       {/* Header */}
       <div className="text-center py-3 border-b border-gray-800 bg-gray-900/50">
-        <h2 className="text-xl font-bold bg-gradient-to-r from-rose-400 via-pink-400 to-fuchsia-400 bg-clip-text text-transparent">
+        <h2 className="text-xl font-bold accent-gradient-text">
           🪞 Mi Espejo Personal
         </h2>
         <p className="text-gray-500 text-xs mt-0.5">Tu guía de imagen, estilo y bienestar emocional</p>
@@ -186,7 +186,7 @@ export default function MirrorChat() {
           <div key={msg.id} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
             <div className={`max-w-[85%] sm:max-w-[75%] rounded-2xl px-4 py-3 ${
               msg.role === 'user'
-                ? 'bg-rose-600/20 border border-rose-500/30 text-white'
+                ? 'accent-bg-soft border accent-border-soft text-white'
                 : 'bg-gray-800/80 border border-gray-700/50 text-gray-200'
             }`}>
               {/* User image */}
@@ -209,7 +209,7 @@ export default function MirrorChat() {
                 <div className="flex flex-wrap gap-2 mt-3 pt-3 border-t border-gray-700/50">
                   {msg.suggestions.map((s, i) => (
                     <button key={i} onClick={() => send(s)} disabled={busy}
-                      className="bg-rose-500/15 hover:bg-rose-500/25 text-rose-300 text-xs rounded-full px-3 py-1.5 transition-colors disabled:opacity-50">
+                      className="accent-bg-soft accent-bg-soft-hover accent-text-light text-xs rounded-full px-3 py-1.5 transition-colors disabled:opacity-50">
                       {s}
                     </button>
                   ))}
@@ -217,7 +217,7 @@ export default function MirrorChat() {
               )}
 
               {/* Timestamp */}
-              <p className={`text-[10px] mt-1.5 ${msg.role === 'user' ? 'text-rose-400/50' : 'text-gray-600'}`}>
+              <p className={`text-[10px] mt-1.5 ${msg.role === 'user' ? 'accent-text-muted' : 'text-gray-600'}`}>
                 {msg.ts.toLocaleTimeString('es', { hour: '2-digit', minute: '2-digit' })}
               </p>
             </div>
@@ -229,9 +229,9 @@ export default function MirrorChat() {
           <div className="flex justify-start">
             <div className="bg-gray-800/80 border border-gray-700/50 rounded-2xl px-4 py-3">
               <div className="flex gap-1.5">
-                <div className="w-2 h-2 bg-rose-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
-                <div className="w-2 h-2 bg-rose-400 rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
-                <div className="w-2 h-2 bg-rose-400 rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
+                <div className="w-2 h-2 accent-bg rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
+                <div className="w-2 h-2 accent-bg rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
+                <div className="w-2 h-2 accent-bg rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
               </div>
             </div>
           </div>
@@ -286,13 +286,13 @@ export default function MirrorChat() {
               onKeyDown={handleKeyDown}
               placeholder="Cuéntame cómo te sientes o pide un consejo..."
               rows={1}
-              className="w-full bg-gray-800 border border-gray-700 rounded-xl px-4 py-2.5 pr-10 text-white placeholder-gray-500 text-sm resize-none focus:outline-none focus:border-rose-500 transition-colors"
+              className="w-full bg-gray-800 border border-gray-700 rounded-xl px-4 py-2.5 pr-10 text-white placeholder-gray-500 text-sm resize-none focus:outline-none transition-colors accent-ring-focus"
               style={{ minHeight: '42px', maxHeight: '120px' }}
               disabled={busy} />
             {/* Voice button inside input */}
             <button onClick={toggleVoice} disabled={busy}
               className={`absolute right-2 top-1/2 -translate-y-1/2 p-1.5 rounded-lg transition-colors ${
-                listening ? 'bg-rose-500 text-white animate-pulse' : 'text-gray-500 hover:text-rose-400'
+                listening ? 'accent-bg text-white animate-pulse' : 'text-gray-500 hover:text-gray-300'
               }`}>
               <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
@@ -303,7 +303,7 @@ export default function MirrorChat() {
 
           {/* Send button */}
           <button onClick={() => send()} disabled={busy || (!input.trim() && !image)}
-            className="flex-shrink-0 bg-gradient-to-r from-rose-500 to-fuchsia-500 hover:from-rose-600 hover:to-fuchsia-600 disabled:opacity-40 text-white rounded-xl p-2.5 transition-all">
+            className="flex-shrink-0 accent-gradient accent-bg-hover disabled:opacity-40 text-white rounded-xl p-2.5 transition-all accent-shadow">
             <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
                 d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />

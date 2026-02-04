@@ -684,7 +684,7 @@ function MealAnalysisDisplay({
     { label: 'Carbohidratos', grams: result.macros.carbsGrams, color: 'bg-yellow-500', textColor: 'text-yellow-400' },
     { label: 'Grasas', grams: result.macros.fatGrams, color: 'bg-red-500', textColor: 'text-red-400' },
     { label: 'Fibra', grams: result.macros.fiberGrams, color: 'bg-green-500', textColor: 'text-green-400' },
-    { label: 'Azúcar', grams: result.macros.sugarGrams, color: 'bg-pink-500', textColor: 'text-pink-400' },
+    { label: 'Azúcar', grams: result.macros.sugarGrams, color: 'accent-bg', textColor: 'accent-text' },
   ];
 
   const maxMacroGram = Math.max(...macroItems.map(m => m.grams), 1);

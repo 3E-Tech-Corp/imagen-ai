@@ -411,7 +411,7 @@ export default function TransformSection() {
     <div className="space-y-6">
       {/* Title */}
       <div className="text-center space-y-2">
-        <h2 className="text-2xl sm:text-3xl font-bold bg-gradient-to-r from-pink-400 via-purple-400 to-indigo-400 bg-clip-text text-transparent">
+        <h2 className="text-2xl sm:text-3xl font-bold accent-gradient-text">
           ✨ Tu Transformación Personal
         </h2>
         <p className="text-gray-400 text-sm sm:text-base max-w-2xl mx-auto">
@@ -431,7 +431,7 @@ export default function TransformSection() {
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             {history.slice(0, 6).map(entry => (
               <div key={entry.id}
-                className="bg-gray-800/50 border border-gray-700/50 rounded-xl p-4 hover:border-pink-500/40 transition-all group">
+                className="bg-gray-800/50 border border-gray-700/50 rounded-xl p-4 accent-border-hover transition-all group">
                 <div className="flex items-start justify-between">
                   <button onClick={() => loadSavedAnalysis(entry.id)} className="flex-1 text-left">
                     <div className="flex items-center gap-2 mb-2">
@@ -488,7 +488,7 @@ export default function TransformSection() {
             <div onDragOver={(e) => { e.preventDefault(); setDragOver(true); }} onDragLeave={() => setDragOver(false)} onDrop={handleDrop}
               onClick={() => fileRef.current?.click()}
               className={`relative cursor-pointer rounded-2xl border-2 border-dashed transition-all duration-300 p-8 sm:p-12 text-center ${
-                dragOver ? 'border-pink-400 bg-pink-500/10 scale-[1.02]' : 'border-gray-600 hover:border-pink-400/50 hover:bg-gray-800/50'
+                dragOver ? 'accent-border accent-bg-muted scale-[1.02]' : 'border-gray-600 accent-border-hover hover:bg-gray-800/50'
               }`}>
               <div className="space-y-4">
                 <div className="text-5xl sm:text-6xl">📸</div>
@@ -515,12 +515,12 @@ export default function TransformSection() {
                 <div>
                   <label className="text-gray-400 text-xs mb-1 block">Edad (opcional)</label>
                   <input type="number" min="10" max="100" value={age} onChange={(e) => setAge(e.target.value)} placeholder="Ej: 28"
-                    className="w-full bg-gray-800 border border-gray-700 rounded-xl px-4 py-2.5 text-white placeholder-gray-500 focus:outline-none focus:border-pink-500 transition-colors" />
+                    className="w-full bg-gray-800 border border-gray-700 rounded-xl px-4 py-2.5 text-white placeholder-gray-500 focus:outline-none accent-ring-focus transition-colors" />
                 </div>
                 <div>
                   <label className="text-gray-400 text-xs mb-1 block">Objetivo (opcional)</label>
                   <select value={goal} onChange={(e) => setGoal(e.target.value)}
-                    className="w-full bg-gray-800 border border-gray-700 rounded-xl px-4 py-2.5 text-white focus:outline-none focus:border-pink-500 transition-colors">
+                    className="w-full bg-gray-800 border border-gray-700 rounded-xl px-4 py-2.5 text-white focus:outline-none accent-ring-focus transition-colors">
                     {GOALS.map((g) => <option key={g.value} value={g.value}>{g.label}</option>)}
                   </select>
                 </div>
@@ -529,7 +529,7 @@ export default function TransformSection() {
                 <label className="text-gray-400 text-xs mb-1 block">Cuéntame sobre ti (opcional)</label>
                 <textarea value={personality} onChange={(e) => setPersonality(e.target.value)}
                   placeholder="Ej: Soy tímida pero quiero mostrarme más segura, me gusta la moda minimalista..." rows={2}
-                  className="w-full bg-gray-800 border border-gray-700 rounded-xl px-4 py-2.5 text-white placeholder-gray-500 focus:outline-none focus:border-pink-500 transition-colors resize-none" />
+                  className="w-full bg-gray-800 border border-gray-700 rounded-xl px-4 py-2.5 text-white placeholder-gray-500 focus:outline-none accent-ring-focus transition-colors resize-none" />
               </div>
               <div className="flex gap-3">
                 <button onClick={() => cameraRef.current?.click()} className="flex items-center gap-2 bg-gray-700 hover:bg-gray-600 text-white rounded-xl px-4 py-3 transition-colors" title="Tomar selfie">
@@ -538,7 +538,7 @@ export default function TransformSection() {
                 <input ref={cameraRef} type="file" accept="image/*" capture="user" className="hidden"
                   onChange={(e) => e.target.files?.[0] && handleFile(e.target.files[0])} />
                 <button onClick={analyze} disabled={loading}
-                  className="flex-1 bg-gradient-to-r from-pink-500 via-purple-500 to-indigo-500 hover:from-pink-600 hover:via-purple-600 hover:to-indigo-600 disabled:opacity-50 disabled:cursor-not-allowed text-white font-semibold rounded-xl px-6 py-3 transition-all shadow-lg shadow-pink-500/25">
+                  className="flex-1 accent-gradient accent-bg-hover disabled:opacity-50 disabled:cursor-not-allowed text-white font-semibold rounded-xl px-6 py-3 transition-all accent-shadow">
                   {loading ? (
                     <span className="flex items-center justify-center gap-2">
                       <svg className="animate-spin w-5 h-5" viewBox="0 0 24 24" fill="none">
@@ -571,7 +571,7 @@ export default function TransformSection() {
           </div>
           <div className="max-w-xs mx-auto mt-4">
             <div className="h-1.5 bg-gray-700 rounded-full overflow-hidden">
-              <div className="h-full bg-gradient-to-r from-pink-500 via-purple-500 to-indigo-500 rounded-full animate-progress" />
+              <div className="h-full accent-gradient rounded-full animate-progress" />
             </div>
           </div>
         </div>
@@ -582,7 +582,7 @@ export default function TransformSection() {
         <div className="max-w-3xl mx-auto space-y-4 animate-fade-in">
 
           {/* Greeting */}
-          <div className="bg-gradient-to-r from-pink-500/20 via-purple-500/20 to-indigo-500/20 border border-pink-500/30 rounded-2xl p-5 text-center">
+          <div className="accent-gradient-soft border accent-border-soft rounded-2xl p-5 text-center">
             <p className="text-white text-lg sm:text-xl font-medium leading-relaxed">{result.greeting}</p>
             <div className="mt-3 flex flex-wrap justify-center gap-3 text-sm text-gray-300">
               <span className="bg-gray-700/50 rounded-full px-3 py-1">🪞 Rostro: {result.faceShape}</span>

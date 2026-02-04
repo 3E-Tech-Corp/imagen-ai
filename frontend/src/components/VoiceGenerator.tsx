@@ -59,7 +59,7 @@ export default function VoiceGenerator({}: VoiceGeneratorProps) {
           <label className="block text-sm font-medium text-gray-300 mb-2">👤 Tipo de voz</label>
           <div className="flex gap-3">
             <button type="button" onClick={() => setGender('female')}
-              className={`flex-1 py-3 rounded-xl text-sm font-medium transition-all ${gender === 'female' ? 'bg-pink-600 text-white shadow-lg shadow-pink-600/25' : 'bg-gray-800 text-gray-400 border border-gray-700 hover:border-pink-500'}`}>
+              className={`flex-1 py-3 rounded-xl text-sm font-medium transition-all ${gender === 'female' ? 'accent-bg text-white shadow-lg shadow-pink-600/25' : 'bg-gray-800 text-gray-400 border border-gray-700 hover:border-pink-500'}`}>
               👩 Voz Femenina
             </button>
             <button type="button" onClick={() => setGender('male')}

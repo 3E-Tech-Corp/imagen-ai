@@ -59,7 +59,7 @@ export default function ResultCard({ result, onEdit, onCreateVideo }: ResultCard
         <div className={`${result.type === 'voice' ? 'aspect-[2/1]' : 'aspect-square'} bg-gradient-to-br from-gray-800 to-gray-900 flex items-center justify-center`}>
           <div className="text-center p-6">
             <div className="relative mx-auto mb-4 w-16 h-16">
-              <svg className="animate-spin h-16 w-16 text-violet-500" viewBox="0 0 24 24">
+              <svg className="animate-spin h-16 w-16 accent-text" viewBox="0 0 24 24">
                 <circle className="opacity-20" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" fill="none" />
                 <path className="opacity-80" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" d="M4 12a8 8 0 018-8" />
               </svg>
@@ -79,7 +79,7 @@ export default function ResultCard({ result, onEdit, onCreateVideo }: ResultCard
             </p>
             {isVideo && (
               <div className="mt-3 w-full bg-gray-700 rounded-full h-1.5 overflow-hidden">
-                <div className="bg-gradient-to-r from-violet-500 to-fuchsia-500 h-full rounded-full animate-pulse" style={{ width: '60%', animation: 'pulse 2s ease-in-out infinite' }} />
+                <div className="bg-gradient-to-r accent-gradient h-full rounded-full animate-pulse" style={{ width: '60%', animation: 'pulse 2s ease-in-out infinite' }} />
               </div>
             )}
           </div>
@@ -168,7 +168,7 @@ export default function ResultCard({ result, onEdit, onCreateVideo }: ResultCard
 
   // Image / Video result
   return (
-    <div className="bg-gray-800 rounded-2xl border border-gray-700 overflow-hidden group hover:border-violet-500/50 transition-all">
+    <div className="bg-gray-800 rounded-2xl border border-gray-700 overflow-hidden group accent-border-hover/50 transition-all">
       {/* Media */}
       <div className="aspect-square relative overflow-hidden">
         {result.type === 'image' ? (
@@ -191,7 +191,7 @@ export default function ResultCard({ result, onEdit, onCreateVideo }: ResultCard
           {onEdit && (
             <button
               onClick={() => onEdit(result)}
-              className="px-3 py-2 bg-fuchsia-600 text-white rounded-xl text-xs font-medium hover:bg-fuchsia-500 transition-colors"
+              className="px-3 py-2 accent-bg text-white rounded-xl text-xs font-medium hover:bg-fuchsia-500 transition-colors"
             >
               ✏️ Editar
             </button>
@@ -206,7 +206,7 @@ export default function ResultCard({ result, onEdit, onCreateVideo }: ResultCard
           )}
           <button
             onClick={handleDownload}
-            className="px-3 py-2 bg-violet-600 text-white rounded-xl text-xs font-medium hover:bg-violet-500 transition-colors"
+            className="px-3 py-2 accent-bg text-white rounded-xl text-xs font-medium hover:accent-bg transition-colors"
           >
             ⬇️ Descargar
           </button>
@@ -249,8 +249,8 @@ export default function ResultCard({ result, onEdit, onCreateVideo }: ResultCard
         <div className="absolute top-3 left-3">
           <span className={`px-2 py-1 rounded-lg text-xs font-medium ${
             result.type === 'image'
-              ? 'bg-violet-600/80 text-white'
-              : 'bg-fuchsia-600/80 text-white'
+              ? 'accent-bg/80 text-white'
+              : 'accent-bg/80 text-white'
           }`}>
             {result.type === 'image' ? '🖼️ Imagen' : '🎬 Video'}
           </span>

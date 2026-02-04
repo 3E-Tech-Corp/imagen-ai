@@ -69,7 +69,6 @@ export default function CreativeChat({ mode, t }: Props) {
     })), [messages]);
 
   const pollVideo = useCallback((msgId: string, jobId: string) => {
-    // Poll every 2 seconds for faster response
     const iv = setInterval(async () => {
       try {
         const r = await api.get<{ status: string; url: string; error?: string }>(`/generation/job/${jobId}`);
@@ -85,7 +84,7 @@ export default function CreativeChat({ mode, t }: Props) {
             : m));
         }
       } catch { /* keep polling */ }
-    }, 2000); // 2s instead of 4s for faster pickup
+    }, 2000);
     polls.current.set(msgId, iv);
     setTimeout(() => { if (polls.current.has(msgId)) { clearInterval(iv); polls.current.delete(msgId); } }, 600_000);
   }, [t]);
@@ -166,6 +165,9 @@ export default function CreativeChat({ mode, t }: Props) {
     } catch { window.open(url, '_blank'); }
   };
 
+  // Dynamic accent color style for inline use
+  const accentColor = `hsl(var(--accent-h), var(--accent-s), var(--accent-l))`;
+
   return (
     <div className="flex flex-col h-[calc(100vh-140px)] max-w-4xl mx-auto">
       {/* Messages */}
@@ -174,8 +176,9 @@ export default function CreativeChat({ mode, t }: Props) {
         onDragLeave={() => setIsDrag(false)} onDrop={onDrop}>
 
         {isDrag && (
-          <div className="fixed inset-0 bg-violet-500/10 border-2 border-dashed border-violet-400 z-50 flex items-center justify-center pointer-events-none">
-            <p className="text-violet-300 text-xl font-medium">{t.sueltaTuImagen}</p>
+          <div className="fixed inset-0 z-50 flex items-center justify-center pointer-events-none"
+            style={{ background: `hsla(var(--accent-h), var(--accent-s), var(--accent-l), 0.1)`, border: `2px dashed ${accentColor}` }}>
+            <p className="accent-text text-xl font-medium">{t.sueltaTuImagen}</p>
           </div>
         )}
 
@@ -188,7 +191,7 @@ export default function CreativeChat({ mode, t }: Props) {
 
               <div className={`rounded-2xl px-4 py-3 ${
                 msg.role === 'user'
-                  ? 'bg-violet-600 text-white rounded-br-sm'
+                  ? 'accent-bg text-white rounded-br-sm accent-shadow'
                   : 'bg-gray-800 text-gray-100 rounded-bl-sm border border-gray-700/50'}`}>
 
                 {msg.attachments?.map((a, i) => (
@@ -208,7 +211,7 @@ export default function CreativeChat({ mode, t }: Props) {
                       onClick={() => window.open(msg.mediaUrl, '_blank')} />
                     <div className="flex flex-wrap gap-2 mt-2">
                       <button onClick={() => download(msg.mediaUrl!, 'image')}
-                        className="text-xs px-3 py-1.5 bg-violet-600/30 text-violet-300 rounded-lg hover:bg-violet-600/50 transition-colors">
+                        className="text-xs px-3 py-1.5 rounded-lg transition-colors accent-bg-soft accent-text-light accent-bg-soft-hover">
                         {t.descargar}
                       </button>
                       <button onClick={() => { setInput('Modifica la imagen: '); inputRef.current?.focus(); }}
@@ -216,7 +219,7 @@ export default function CreativeChat({ mode, t }: Props) {
                         {t.modificar}
                       </button>
                       <button onClick={() => send('Crea un video animado con sonido a partir de esta imagen')}
-                        className="text-xs px-3 py-1.5 bg-fuchsia-600/30 text-fuchsia-300 rounded-lg hover:bg-fuchsia-600/50 transition-colors">
+                        className="text-xs px-3 py-1.5 rounded-lg transition-colors accent-gradient-soft accent-text-light accent-bg-soft-hover">
                         {t.hacerVideo}
                       </button>
                     </div>
@@ -228,7 +231,7 @@ export default function CreativeChat({ mode, t }: Props) {
                     <video src={msg.mediaUrl} controls className="rounded-xl max-h-96 w-full" autoPlay muted loop />
                     <div className="flex gap-2 mt-2">
                       <button onClick={() => download(msg.mediaUrl!, 'video')}
-                        className="text-xs px-3 py-1.5 bg-violet-600/30 text-violet-300 rounded-lg hover:bg-violet-600/50 transition-colors">
+                        className="text-xs px-3 py-1.5 rounded-lg transition-colors accent-bg-soft accent-text-light accent-bg-soft-hover">
                         {t.descargar}
                       </button>
                     </div>
@@ -237,12 +240,13 @@ export default function CreativeChat({ mode, t }: Props) {
 
                 {msg.mediaType === 'video_pending' && (
                   <div className="mt-3 flex items-center gap-3 bg-gray-700/30 rounded-xl p-4">
-                    <div className="w-8 h-8 border-2 border-violet-500 border-t-transparent rounded-full animate-spin" />
+                    <div className="w-8 h-8 rounded-full animate-spin"
+                      style={{ border: `2px solid ${accentColor}`, borderTopColor: 'transparent' }} />
                     <div className="flex-1">
-                      <p className="text-violet-300 text-sm font-medium">{t.generandoVideo}</p>
+                      <p className="accent-text text-sm font-medium">{t.generandoVideo}</p>
                       <p className="text-gray-500 text-xs">{t.listoEn2Min}</p>
                       <div className="mt-2 h-1 bg-gray-700 rounded-full overflow-hidden">
-                        <div className="h-full bg-gradient-to-r from-violet-500 to-fuchsia-500 rounded-full animate-progress" />
+                        <div className="h-full rounded-full animate-progress accent-gradient" />
                       </div>
                     </div>
                   </div>
@@ -253,7 +257,8 @@ export default function CreativeChat({ mode, t }: Props) {
                 <div className="flex flex-wrap gap-2 mt-2">
                   {msg.suggestions.map((s, i) => (
                     <button key={i} onClick={() => send(s)} disabled={busy}
-                      className="text-xs px-3 py-1.5 bg-gray-800/80 text-gray-300 rounded-full border border-gray-700 hover:border-violet-500 hover:text-violet-300 transition-all disabled:opacity-50">
+                      className="text-xs px-3 py-1.5 bg-gray-800/80 text-gray-300 rounded-full border border-gray-700 accent-border-hover accent-text-light transition-all disabled:opacity-50"
+                      style={{ ['--tw-border-opacity' as string]: 1 }}>
                       {s}
                     </button>
                   ))}
@@ -267,9 +272,9 @@ export default function CreativeChat({ mode, t }: Props) {
           <div className="flex justify-start">
             <div className="bg-gray-800 border border-gray-700/50 rounded-2xl rounded-bl-sm px-4 py-3 flex items-center gap-3">
               <div className="flex gap-1">
-                <div className="w-2 h-2 bg-violet-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
-                <div className="w-2 h-2 bg-violet-400 rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
-                <div className="w-2 h-2 bg-violet-400 rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
+                <div className="w-2 h-2 rounded-full animate-bounce accent-bg" style={{ animationDelay: '0ms' }} />
+                <div className="w-2 h-2 rounded-full animate-bounce accent-bg" style={{ animationDelay: '150ms' }} />
+                <div className="w-2 h-2 rounded-full animate-bounce accent-bg" style={{ animationDelay: '300ms' }} />
               </div>
               <span className="text-gray-400 text-sm">{mode === 'image' ? t.creando : t.procesando}</span>
             </div>
@@ -309,7 +314,7 @@ export default function CreativeChat({ mode, t }: Props) {
               onChange={e => setInput(e.target.value)}
               onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(); } }}
               placeholder={mode === 'image' ? t.describeLaImagen : t.describeElVideo}
-              className="w-full bg-gray-800 border border-gray-700 rounded-xl px-4 py-2.5 text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent resize-none text-sm"
+              className="w-full bg-gray-800 border border-gray-700 rounded-xl px-4 py-2.5 text-white placeholder-gray-500 focus:outline-none focus:border-transparent resize-none text-sm accent-ring-focus"
               rows={1} disabled={busy}
               onInput={e => { const ta = e.target as HTMLTextAreaElement; ta.style.height = 'auto'; ta.style.height = `${Math.min(ta.scrollHeight, 120)}px`; }}
             />
@@ -321,7 +326,7 @@ export default function CreativeChat({ mode, t }: Props) {
           </button>
 
           <button onClick={() => send()} disabled={!input.trim() || busy}
-            className="flex-shrink-0 w-10 h-10 flex items-center justify-center rounded-xl bg-gradient-to-r from-violet-600 to-fuchsia-600 text-white disabled:opacity-30 disabled:cursor-not-allowed hover:from-violet-500 hover:to-fuchsia-500 transition-all">
+            className="flex-shrink-0 w-10 h-10 flex items-center justify-center rounded-xl accent-gradient text-white disabled:opacity-30 disabled:cursor-not-allowed accent-bg-hover transition-all accent-shadow">
             ➤
           </button>
         </div>

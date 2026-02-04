@@ -135,7 +135,7 @@ export default function VoiceInput({ onTranscript, language = 'es-ES', className
         className={`relative w-10 h-10 rounded-full flex items-center justify-center transition-all duration-200 ${
           state === 'listening'
             ? 'bg-red-600 text-white shadow-lg shadow-red-600/40'
-            : 'bg-gray-700 text-gray-400 hover:bg-violet-600 hover:text-white hover:shadow-lg hover:shadow-violet-600/25'
+            : 'bg-gray-700 text-gray-400 hover:accent-bg hover:text-white hover:shadow-lg hover:accent-shadow'
         }`}
       >
         {/* Pulsing ring when recording */}

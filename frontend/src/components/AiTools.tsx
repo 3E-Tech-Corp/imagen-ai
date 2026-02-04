@@ -42,7 +42,7 @@ const TOOLS: ToolCard[] = [
     title: 'Reimaginar',
     description: 'Transforma tu imagen con una nueva visión usando un prompt',
     gradient: 'from-violet-500 to-purple-600',
-    shadow: 'shadow-violet-500/20',
+    shadow: 'accent-shadow',
   },
   {
     id: 'sketch',
@@ -115,7 +115,7 @@ function ImageDropzone({
     <div
       className={`relative border-2 border-dashed rounded-2xl transition-all cursor-pointer overflow-hidden ${
         isDragging
-          ? 'border-violet-400 bg-violet-500/10'
+          ? 'accent-border accent-bg/10'
           : imagePreview
           ? 'border-gray-700 bg-gray-800/50'
           : 'border-gray-700 bg-gray-800/30 hover:border-gray-500 hover:bg-gray-800/50'
@@ -199,7 +199,7 @@ function ResultDisplay({
         <h4 className="text-white font-semibold text-lg">✨ Resultado</h4>
         <button
           onClick={handleDownload}
-          className="px-4 py-2 bg-gradient-to-r from-violet-600 to-fuchsia-600 text-white rounded-xl text-sm font-medium hover:from-violet-500 hover:to-fuchsia-500 transition-all flex items-center gap-2"
+          className="px-4 py-2 bg-gradient-to-r accent-gradient text-white rounded-xl text-sm font-medium hover:from-violet-500 hover:to-fuchsia-500 transition-all flex items-center gap-2"
         >
           💾 Descargar
         </button>
@@ -218,7 +218,7 @@ function ResultDisplay({
             />
           </div>
           <div className="bg-gray-800/50 rounded-2xl p-3">
-            <p className="text-violet-400 text-xs text-center mb-2 font-medium uppercase tracking-wider">
+            <p className="accent-text text-xs text-center mb-2 font-medium uppercase tracking-wider">
               Resultado
             </p>
             <img
@@ -432,7 +432,7 @@ function ReimagineTool() {
           value={prompt}
           onChange={(e) => setPrompt(e.target.value)}
           placeholder="Ej: Transforma en un paisaje de fantasía con dragones volando..."
-          className="w-full bg-gray-800 border border-gray-700 rounded-xl px-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent resize-none"
+          className="w-full bg-gray-800 border border-gray-700 rounded-xl px-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:ring-2 accent-ring-focus focus:border-transparent resize-none"
           rows={3}
         />
       </div>
@@ -741,7 +741,7 @@ function LipSyncTool() {
               className={`flex-1 py-3 rounded-xl text-sm font-medium transition-all ${
                 gender === g.value
                   ? g.color === 'pink'
-                    ? 'bg-pink-600 text-white shadow-lg shadow-pink-600/25'
+                    ? 'accent-bg text-white shadow-lg shadow-pink-600/25'
                     : 'bg-blue-600 text-white shadow-lg shadow-blue-600/25'
                   : 'bg-gray-800 text-gray-400 border border-gray-700 hover:text-white'
               }`}
@@ -761,7 +761,7 @@ function LipSyncTool() {
               onClick={() => setLanguage(lang.code)}
               className={`px-3 py-2 rounded-xl text-xs font-medium transition-all ${
                 language === lang.code
-                  ? 'bg-pink-600 text-white shadow-lg shadow-pink-600/25'
+                  ? 'accent-bg text-white shadow-lg shadow-pink-600/25'
                   : 'bg-gray-800 text-gray-400 border border-gray-700 hover:text-white'
               }`}
             >

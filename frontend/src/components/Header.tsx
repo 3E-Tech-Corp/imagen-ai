@@ -11,15 +11,15 @@ interface HeaderProps {
 }
 
 export default function Header({ activeTab, onTabChange, lang, onLangChange, t }: HeaderProps) {
-  const TABS: { id: GenerationType; label: string; emoji: string; color: string }[] = [
-    { id: 'image', label: t.imagenes, emoji: '🖼️', color: 'bg-violet-600 shadow-violet-600/25' },
-    { id: 'video', label: t.videos, emoji: '🎬', color: 'bg-fuchsia-600 shadow-fuchsia-600/25' },
-    { id: 'tools', label: t.herramientas, emoji: '✨', color: 'bg-amber-600 shadow-amber-600/25' },
-    { id: 'transform', label: t.glowUp, emoji: '💎', color: 'bg-pink-600 shadow-pink-600/25' },
-    { id: 'mirror', label: t.miEspejo, emoji: '🪞', color: 'bg-rose-600 shadow-rose-600/25' },
-    { id: 'voice', label: t.voces, emoji: '🎙️', color: 'bg-emerald-600 shadow-emerald-600/25' },
-    { id: 'recipe', label: t.recetas, emoji: '🍳', color: 'bg-orange-600 shadow-orange-600/25' },
-    { id: 'projects', label: t.proyectos, emoji: '📂', color: 'bg-blue-600 shadow-blue-600/25' },
+  const TABS: { id: GenerationType; label: string; emoji: string }[] = [
+    { id: 'image', label: t.imagenes, emoji: '🖼️' },
+    { id: 'video', label: t.videos, emoji: '🎬' },
+    { id: 'tools', label: t.herramientas, emoji: '✨' },
+    { id: 'transform', label: t.glowUp, emoji: '💎' },
+    { id: 'mirror', label: t.miEspejo, emoji: '🪞' },
+    { id: 'voice', label: t.voces, emoji: '🎙️' },
+    { id: 'recipe', label: t.recetas, emoji: '🍳' },
+    { id: 'projects', label: t.proyectos, emoji: '📂' },
   ];
 
   return (
@@ -27,27 +27,27 @@ export default function Header({ activeTab, onTabChange, lang, onLangChange, t }
       <div className="bg-black/70 backdrop-blur-xl border-b border-white/[0.06]">
         <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8">
           <div className="flex items-center gap-3 h-14 sm:h-16">
-            {/* Logo */}
+            {/* Logo — uses accent color */}
             <div className="flex items-center gap-2.5 flex-shrink-0">
-              <div className="w-9 h-9 sm:w-10 sm:h-10 bg-gradient-to-br from-violet-500 via-fuchsia-500 to-pink-500 rounded-xl flex items-center justify-center shadow-lg shadow-violet-500/20">
+              <div className="w-9 h-9 sm:w-10 sm:h-10 accent-gradient rounded-xl flex items-center justify-center accent-shadow">
                 <span className="text-white font-bold text-sm sm:text-base">IA</span>
               </div>
               <div className="hidden sm:block">
                 <h1 className="text-white font-bold text-lg leading-tight">
-                  Imagen <span className="bg-gradient-to-r from-violet-400 to-fuchsia-400 bg-clip-text text-transparent">AI</span>
+                  Imagen <span className="accent-gradient-text">AI</span>
                 </h1>
                 <p className="text-gray-500 text-[10px] font-medium tracking-wide uppercase">{t.studioCreativo}</p>
               </div>
             </div>
 
-            {/* Tabs */}
+            {/* Tabs — active tab uses accent color */}
             <div className="flex-1 overflow-x-auto no-scrollbar">
               <div className="flex bg-gray-800/80 rounded-xl p-0.5 gap-0.5 w-max">
                 {TABS.map(tab => (
                   <button key={tab.id} onClick={() => onTabChange(tab.id)}
                     className={`px-2.5 sm:px-4 py-1.5 sm:py-2 rounded-lg text-xs sm:text-sm font-medium transition-all whitespace-nowrap ${
                       activeTab === tab.id
-                        ? `${tab.color} text-white shadow-lg`
+                        ? 'accent-bg text-white accent-shadow'
                         : 'text-gray-400 hover:text-white hover:bg-gray-700'
                     }`}>
                     <span>{tab.emoji}</span>

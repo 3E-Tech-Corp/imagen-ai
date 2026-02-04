@@ -127,7 +127,7 @@ export default function VideoEditor({ videoUrl, videoId, onClose, onSaved }: Vid
             className={`px-6 py-2 rounded-xl text-sm font-bold transition-all ${
               isProcessing
                 ? 'bg-gray-700 text-gray-400 cursor-not-allowed'
-                : 'bg-gradient-to-r from-violet-600 to-fuchsia-600 text-white hover:from-violet-500 hover:to-fuchsia-500'
+                : 'bg-gradient-to-r accent-gradient text-white hover:from-violet-500 hover:to-fuchsia-500'
             }`}
           >
             {isProcessing ? '⏳ Procesando...' : '💾 Exportar Video'}
@@ -180,7 +180,7 @@ export default function VideoEditor({ videoUrl, videoId, onClose, onSaved }: Vid
               <span>{formatTime(currentTime)}</span>
               <div className="flex-1 bg-gray-800 rounded-full h-1.5 relative">
                 <div
-                  className="absolute h-full bg-violet-600 rounded-full"
+                  className="absolute h-full accent-bg rounded-full"
                   style={{ left: `${(trimStart / duration) * 100}%`, width: `${((trimEnd - trimStart) / duration) * 100}%` }}
                 />
                 <div
@@ -203,7 +203,7 @@ export default function VideoEditor({ videoUrl, videoId, onClose, onSaved }: Vid
                 onClick={() => setActiveSection(s.id)}
                 className={`flex-1 px-3 py-3 text-xs font-medium transition-colors whitespace-nowrap ${
                   activeSection === s.id
-                    ? 'bg-gray-800 text-white border-b-2 border-violet-500'
+                    ? 'bg-gray-800 text-white border-b-2 accent-border'
                     : 'text-gray-400 hover:text-white'
                 }`}
               >
@@ -261,7 +261,7 @@ export default function VideoEditor({ videoUrl, videoId, onClose, onSaved }: Vid
                   value={textOverlay.text}
                   onChange={(e) => setTextOverlay({ ...textOverlay, text: e.target.value })}
                   placeholder="Escribe el texto..."
-                  className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-violet-500"
+                  className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:ring-2 accent-ring-focus"
                 />
                 <div>
                   <label className="text-gray-400 text-sm mb-1 block">Posición</label>
@@ -272,7 +272,7 @@ export default function VideoEditor({ videoUrl, videoId, onClose, onSaved }: Vid
                         onClick={() => setTextOverlay({ ...textOverlay, position: pos })}
                         className={`flex-1 py-2 rounded-lg text-sm ${
                           textOverlay.position === pos
-                            ? 'bg-violet-600 text-white'
+                            ? 'accent-bg text-white'
                             : 'bg-gray-800 text-gray-400 border border-gray-700'
                         }`}
                       >
@@ -302,7 +302,7 @@ export default function VideoEditor({ videoUrl, videoId, onClose, onSaved }: Vid
                         key={c}
                         onClick={() => setTextOverlay({ ...textOverlay, color: c })}
                         className={`w-8 h-8 rounded-full border-2 ${
-                          textOverlay.color === c ? 'border-violet-400 scale-110' : 'border-gray-600'
+                          textOverlay.color === c ? 'accent-border scale-110' : 'border-gray-600'
                         }`}
                         style={{ backgroundColor: c }}
                       />
@@ -337,7 +337,7 @@ export default function VideoEditor({ videoUrl, videoId, onClose, onSaved }: Vid
                       <button
                         onClick={() => setVoiceGender('female')}
                         className={`flex-1 py-2 rounded-lg text-sm ${
-                          voiceGender === 'female' ? 'bg-pink-600 text-white' : 'bg-gray-800 text-gray-400 border border-gray-700'
+                          voiceGender === 'female' ? 'accent-bg text-white' : 'bg-gray-800 text-gray-400 border border-gray-700'
                         }`}
                       >
                         👩 Mujer
@@ -380,8 +380,8 @@ export default function VideoEditor({ videoUrl, videoId, onClose, onSaved }: Vid
                       onClick={() => setFilter(f.value)}
                       className={`px-3 py-3 rounded-xl text-sm font-medium transition-all ${
                         filter === f.value
-                          ? 'bg-violet-600 text-white shadow-lg'
-                          : 'bg-gray-800 text-gray-400 border border-gray-700 hover:border-violet-500'
+                          ? 'accent-bg text-white shadow-lg'
+                          : 'bg-gray-800 text-gray-400 border border-gray-700 accent-border-hover'
                       }`}
                     >
                       {f.label}
@@ -401,8 +401,8 @@ export default function VideoEditor({ videoUrl, videoId, onClose, onSaved }: Vid
                       onClick={() => setSpeed(s)}
                       className={`py-3 rounded-xl text-sm font-medium transition-all ${
                         speed === s
-                          ? 'bg-violet-600 text-white shadow-lg'
-                          : 'bg-gray-800 text-gray-400 border border-gray-700 hover:border-violet-500'
+                          ? 'accent-bg text-white shadow-lg'
+                          : 'bg-gray-800 text-gray-400 border border-gray-700 accent-border-hover'
                       }`}
                     >
                       {s}x

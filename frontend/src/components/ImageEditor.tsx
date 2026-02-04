@@ -228,7 +228,7 @@ export default function ImageEditor({ imageUrl, imageId, onClose, onSaved }: Ima
             className={`px-6 py-2 rounded-xl text-sm font-bold transition-all ${
               isExporting
                 ? 'bg-gray-700 text-gray-400 cursor-not-allowed'
-                : 'bg-gradient-to-r from-violet-600 to-fuchsia-600 text-white hover:from-violet-500 hover:to-fuchsia-500'
+                : 'bg-gradient-to-r accent-gradient text-white hover:from-violet-500 hover:to-fuchsia-500'
             }`}
           >
             {isExporting ? '⏳ Exportando...' : '💾 Descargar Imagen'}
@@ -265,7 +265,7 @@ export default function ImageEditor({ imageUrl, imageId, onClose, onSaved }: Ima
                 onClick={() => setActiveSection(s.id)}
                 className={`flex-1 px-2 py-3 text-xs font-medium transition-colors ${
                   activeSection === s.id
-                    ? 'bg-gray-800 text-white border-b-2 border-violet-500'
+                    ? 'bg-gray-800 text-white border-b-2 accent-border'
                     : 'text-gray-400 hover:text-white'
                 }`}
               >
@@ -286,8 +286,8 @@ export default function ImageEditor({ imageUrl, imageId, onClose, onSaved }: Ima
                       onClick={() => setFilter(f.value)}
                       className={`px-3 py-3 rounded-xl text-sm font-medium transition-all ${
                         filter === f.value
-                          ? 'bg-violet-600 text-white shadow-lg'
-                          : 'bg-gray-800 text-gray-400 border border-gray-700 hover:border-violet-500'
+                          ? 'accent-bg text-white shadow-lg'
+                          : 'bg-gray-800 text-gray-400 border border-gray-700 accent-border-hover'
                       }`}
                     >
                       {f.label}
@@ -341,7 +341,7 @@ export default function ImageEditor({ imageUrl, imageId, onClose, onSaved }: Ima
                   value={newText}
                   onChange={(e) => setNewText(e.target.value)}
                   placeholder="Escribe el texto..."
-                  className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-violet-500"
+                  className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:ring-2 accent-ring-focus"
                 />
                 <div>
                   <label className="text-gray-400 text-sm mb-1 block">Posición</label>
@@ -351,7 +351,7 @@ export default function ImageEditor({ imageUrl, imageId, onClose, onSaved }: Ima
                         key={pos}
                         onClick={() => setTextPosition(pos)}
                         className={`flex-1 py-2 rounded-lg text-sm ${
-                          textPosition === pos ? 'bg-violet-600 text-white' : 'bg-gray-800 text-gray-400 border border-gray-700'
+                          textPosition === pos ? 'accent-bg text-white' : 'bg-gray-800 text-gray-400 border border-gray-700'
                         }`}
                       >
                         {pos === 'top' ? '⬆️ Arriba' : pos === 'center' ? '↔️ Centro' : '⬇️ Abajo'}
@@ -386,7 +386,7 @@ export default function ImageEditor({ imageUrl, imageId, onClose, onSaved }: Ima
                       <button
                         key={c}
                         onClick={() => setTextColor(c)}
-                        className={`w-8 h-8 rounded-full border-2 ${textColor === c ? 'border-violet-400 scale-110' : 'border-gray-600'}`}
+                        className={`w-8 h-8 rounded-full border-2 ${textColor === c ? 'accent-border scale-110' : 'border-gray-600'}`}
                         style={{ backgroundColor: c }}
                       />
                     ))}
@@ -395,7 +395,7 @@ export default function ImageEditor({ imageUrl, imageId, onClose, onSaved }: Ima
                 <button
                   onClick={addText}
                   disabled={!newText.trim()}
-                  className="w-full py-3 bg-violet-600 text-white rounded-xl text-sm font-medium hover:bg-violet-500 disabled:bg-gray-700 disabled:text-gray-500 transition-colors"
+                  className="w-full py-3 accent-bg text-white rounded-xl text-sm font-medium hover:accent-bg disabled:bg-gray-700 disabled:text-gray-500 transition-colors"
                 >
                   ➕ Agregar texto
                 </button>
@@ -426,7 +426,7 @@ export default function ImageEditor({ imageUrl, imageId, onClose, onSaved }: Ima
                           key={deg}
                           onClick={() => setRotation(deg)}
                           className={`py-3 rounded-xl text-sm font-medium ${
-                            rotation === deg ? 'bg-violet-600 text-white' : 'bg-gray-800 text-gray-400 border border-gray-700'
+                            rotation === deg ? 'accent-bg text-white' : 'bg-gray-800 text-gray-400 border border-gray-700'
                           }`}
                         >
                           {deg}°
@@ -440,7 +440,7 @@ export default function ImageEditor({ imageUrl, imageId, onClose, onSaved }: Ima
                       <button
                         onClick={() => setFlipH(!flipH)}
                         className={`flex-1 py-3 rounded-xl text-sm font-medium ${
-                          flipH ? 'bg-violet-600 text-white' : 'bg-gray-800 text-gray-400 border border-gray-700'
+                          flipH ? 'accent-bg text-white' : 'bg-gray-800 text-gray-400 border border-gray-700'
                         }`}
                       >
                         ↔️ Horizontal
@@ -448,7 +448,7 @@ export default function ImageEditor({ imageUrl, imageId, onClose, onSaved }: Ima
                       <button
                         onClick={() => setFlipV(!flipV)}
                         className={`flex-1 py-3 rounded-xl text-sm font-medium ${
-                          flipV ? 'bg-violet-600 text-white' : 'bg-gray-800 text-gray-400 border border-gray-700'
+                          flipV ? 'accent-bg text-white' : 'bg-gray-800 text-gray-400 border border-gray-700'
                         }`}
                       >
                         ↕️ Vertical
