@@ -15,10 +15,10 @@ export default function App() {
   const [isGenerating, setIsGenerating] = useState(false);
 
   return (
-    <div className="min-h-screen flex flex-col" style={{ background: 'var(--bg-main)' }}>
+    <div className="min-h-screen bg-gray-950 flex flex-col">
       <Header activeTab={activeTab} onTabChange={setActiveTab} />
 
-      <main className="flex-1 max-w-7xl mx-auto w-full px-2 sm:px-6 lg:px-8 py-2 sm:py-4">
+      <main className="flex-1 max-w-7xl mx-auto w-full px-2 sm:px-6 lg:px-8 py-2 sm:py-6">
         {activeTab !== 'image' && activeTab !== 'video' && activeTab !== 'mirror' && <StatusBanner />}
 
         {activeTab === 'image' ? (
@@ -44,10 +44,10 @@ export default function App() {
         )}
       </main>
 
-      <footer className="border-t" style={{ borderColor: 'var(--border-soft)' }}>
+      <footer className="border-t border-gray-800">
         <div className="max-w-7xl mx-auto px-4 py-4">
-          <p className="text-center text-xs tracking-wide" style={{ color: 'var(--text-muted)' }}>
-            ✿ Imagen AI — Tu estudio creativo con inteligencia artificial ✿
+          <p className="text-center text-gray-500 text-sm">
+            Imagen AI — Crea imágenes, videos y voces con inteligencia artificial
           </p>
         </div>
       </footer>

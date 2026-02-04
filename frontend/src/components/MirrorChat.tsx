@@ -161,13 +161,13 @@ export default function MirrorChat() {
   };
 
   return (
-    <div className="flex flex-col h-[calc(100vh-4rem)]" style={{ background: 'var(--bg-main)' }}>
+    <div className="flex flex-col h-[calc(100vh-4rem)]">
       {/* Header */}
-      <div className="text-center py-3 border-b glass-soft" style={{ borderColor: 'var(--border-soft)' }}>
-        <h2 className="text-xl font-elegant font-semibold italic text-rose-400">
-          ❋ Mi Espejo Personal
+      <div className="text-center py-3 border-b border-gray-800 bg-gray-900/50">
+        <h2 className="text-xl font-bold bg-gradient-to-r from-rose-400 via-pink-400 to-fuchsia-400 bg-clip-text text-transparent">
+          🪞 Mi Espejo Personal
         </h2>
-        <p className="text-xs mt-0.5 tracking-wide" style={{ color: 'var(--text-muted)' }}>Tu guía de imagen, estilo y bienestar emocional</p>
+        <p className="text-gray-500 text-xs mt-0.5">Tu guía de imagen, estilo y bienestar emocional</p>
       </div>
 
       {/* Messages */}
@@ -177,11 +177,8 @@ export default function MirrorChat() {
         onDrop={handleDrop}>
 
         {isDrag && (
-          <div className="fixed inset-0 z-40 flex items-center justify-center" style={{ background: 'rgba(248,232,238,0.6)', backdropFilter: 'blur(8px)' }}>
-            <div className="card-soft px-10 py-8 text-center">
-              <p className="text-3xl mb-2">✿</p>
-              <p className="text-[#6b5e66] font-medium">Suelta tu foto aquí</p>
-            </div>
+          <div className="fixed inset-0 bg-rose-500/10 border-2 border-dashed border-rose-400 z-40 flex items-center justify-center rounded-2xl m-4">
+            <p className="text-rose-300 text-lg font-medium">📸 Suelta tu foto aquí</p>
           </div>
         )}
 
@@ -189,8 +186,8 @@ export default function MirrorChat() {
           <div key={msg.id} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
             <div className={`max-w-[85%] sm:max-w-[75%] rounded-2xl px-4 py-3 ${
               msg.role === 'user'
-                ? 'bg-gradient-to-br from-rose-100 to-pink-100 border border-rose-200/50 text-[#3d3037]'
-                : 'bg-white border border-[rgba(180,160,170,0.15)] text-[#3d3037] shadow-sm'
+                ? 'bg-rose-600/20 border border-rose-500/30 text-white'
+                : 'bg-gray-800/80 border border-gray-700/50 text-gray-200'
             }`}>
               {/* User image */}
               {msg.imageUrl && (
@@ -209,10 +206,10 @@ export default function MirrorChat() {
 
               {/* Suggestions */}
               {msg.suggestions && msg.suggestions.length > 0 && (
-                <div className="flex flex-wrap gap-2 mt-3 pt-3 border-t" style={{ borderColor: 'var(--border-soft)' }}>
+                <div className="flex flex-wrap gap-2 mt-3 pt-3 border-t border-gray-700/50">
                   {msg.suggestions.map((s, i) => (
                     <button key={i} onClick={() => send(s)} disabled={busy}
-                      className="bg-rose-50 hover:bg-rose-100 text-rose-500 text-xs rounded-full px-3 py-1.5 transition-colors disabled:opacity-50 border border-rose-200/50">
+                      className="bg-rose-500/15 hover:bg-rose-500/25 text-rose-300 text-xs rounded-full px-3 py-1.5 transition-colors disabled:opacity-50">
                       {s}
                     </button>
                   ))}
@@ -220,7 +217,7 @@ export default function MirrorChat() {
               )}
 
               {/* Timestamp */}
-              <p className={`text-[10px] mt-1.5 ${msg.role === 'user' ? 'text-rose-300' : 'text-[#b8a9b0]'}`}>
+              <p className={`text-[10px] mt-1.5 ${msg.role === 'user' ? 'text-rose-400/50' : 'text-gray-600'}`}>
                 {msg.ts.toLocaleTimeString('es', { hour: '2-digit', minute: '2-digit' })}
               </p>
             </div>
@@ -230,11 +227,11 @@ export default function MirrorChat() {
         {/* Typing indicator */}
         {busy && (
           <div className="flex justify-start">
-            <div className="bg-white border border-[rgba(180,160,170,0.15)] rounded-2xl px-4 py-3 shadow-sm">
+            <div className="bg-gray-800/80 border border-gray-700/50 rounded-2xl px-4 py-3">
               <div className="flex gap-1.5">
-                <div className="w-2 h-2 bg-rose-300 rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
-                <div className="w-2 h-2 bg-pink-300 rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
-                <div className="w-2 h-2 bg-purple-300 rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
+                <div className="w-2 h-2 bg-rose-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
+                <div className="w-2 h-2 bg-rose-400 rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
+                <div className="w-2 h-2 bg-rose-400 rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
               </div>
             </div>
           </div>
@@ -246,10 +243,10 @@ export default function MirrorChat() {
       {/* Image preview */}
       {image && (
         <div className="px-3 sm:px-6 pb-2">
-          <div className="flex items-center gap-2 bg-white rounded-xl p-2 border border-rose-200/50 shadow-sm">
+          <div className="flex items-center gap-2 bg-gray-800/50 rounded-xl p-2 border border-gray-700/50">
             <img src={image} alt="Preview" className="w-16 h-16 object-cover rounded-lg" />
-            <span className="text-[#a8969e] text-xs flex-1">✿ Foto lista para enviar</span>
-            <button onClick={removeImage} className="text-[#b8a9b0] hover:text-rose-400 p-1">
+            <span className="text-gray-400 text-xs flex-1">📸 Foto lista para enviar</span>
+            <button onClick={removeImage} className="text-gray-500 hover:text-red-400 p-1">
               <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
               </svg>
@@ -259,11 +256,11 @@ export default function MirrorChat() {
       )}
 
       {/* Input area */}
-      <div className="glass-soft border-t px-3 sm:px-6 py-3" style={{ borderColor: 'var(--border-soft)' }}>
+      <div className="border-t border-gray-800 bg-gray-900/80 backdrop-blur px-3 sm:px-6 py-3">
         <div className="flex items-end gap-2 max-w-3xl mx-auto">
           {/* Photo button */}
           <button onClick={() => fileRef.current?.click()}
-            className="flex-shrink-0 bg-white border border-[rgba(180,160,170,0.2)] hover:bg-rose-50 hover:border-rose-200 text-[#a8969e] hover:text-rose-400 rounded-xl p-2.5 transition-all shadow-sm"
+            className="flex-shrink-0 bg-gray-800 hover:bg-gray-700 text-gray-300 rounded-xl p-2.5 transition-colors"
             title="Subir foto">
             <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
@@ -274,7 +271,7 @@ export default function MirrorChat() {
             onChange={(e) => e.target.files?.[0] && handleFile(e.target.files[0])} />
 
           {/* Camera button (mobile) */}
-          <label className="flex-shrink-0 bg-white border border-[rgba(180,160,170,0.2)] hover:bg-rose-50 text-[#a8969e] rounded-xl p-2.5 transition-all cursor-pointer sm:hidden shadow-sm"
+          <label className="flex-shrink-0 bg-gray-800 hover:bg-gray-700 text-gray-300 rounded-xl p-2.5 transition-colors cursor-pointer sm:hidden"
             title="Tomar selfie">
             <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
@@ -289,13 +286,13 @@ export default function MirrorChat() {
               onKeyDown={handleKeyDown}
               placeholder="Cuéntame cómo te sientes o pide un consejo..."
               rows={1}
-              className="w-full bg-white border border-[rgba(180,160,170,0.2)] rounded-xl px-4 py-2.5 pr-10 text-[#3d3037] placeholder-[#b8a9b0] text-sm resize-none focus:outline-none focus:ring-2 focus:ring-rose-200 focus:border-rose-300 transition-all shadow-sm"
+              className="w-full bg-gray-800 border border-gray-700 rounded-xl px-4 py-2.5 pr-10 text-white placeholder-gray-500 text-sm resize-none focus:outline-none focus:border-rose-500 transition-colors"
               style={{ minHeight: '42px', maxHeight: '120px' }}
               disabled={busy} />
             {/* Voice button inside input */}
             <button onClick={toggleVoice} disabled={busy}
-              className={`absolute right-2 top-1/2 -translate-y-1/2 p-1.5 rounded-lg transition-all ${
-                listening ? 'bg-rose-400 text-white animate-pulse' : 'text-[#b8a9b0] hover:text-rose-400 hover:bg-rose-50'
+              className={`absolute right-2 top-1/2 -translate-y-1/2 p-1.5 rounded-lg transition-colors ${
+                listening ? 'bg-rose-500 text-white animate-pulse' : 'text-gray-500 hover:text-rose-400'
               }`}>
               <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
@@ -306,7 +303,7 @@ export default function MirrorChat() {
 
           {/* Send button */}
           <button onClick={() => send()} disabled={busy || (!input.trim() && !image)}
-            className="flex-shrink-0 bg-gradient-to-r from-rose-300 to-pink-400 hover:from-rose-400 hover:to-pink-500 disabled:opacity-30 text-white rounded-xl p-2.5 transition-all shadow-sm active:scale-95">
+            className="flex-shrink-0 bg-gradient-to-r from-rose-500 to-fuchsia-500 hover:from-rose-600 hover:to-fuchsia-600 disabled:opacity-40 text-white rounded-xl p-2.5 transition-all">
             <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
                 d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />

@@ -357,7 +357,7 @@ Responde en español al usuario. Prompt SIEMPRE en inglés.";
 
         response.MediaType = "video_pending";
         response.JobId = job.Id;
-        response.Message += "\n\n⏳ Tu video se está generando con sonido. Te avisaré cuando esté listo...";
+        response.Message += "\n\n⏳ Generando tu video con sonido (~1 min)...";
 
         return Task.CompletedTask;
     }

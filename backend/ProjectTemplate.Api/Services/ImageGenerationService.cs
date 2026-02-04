@@ -223,8 +223,8 @@ public class ImageGenerationService
 
         if (useFastModel)
         {
-            // MiniMax Video-01 — with built-in audio support
-            modelEndpoint = "fal-ai/minimax-video/video-01";
+            // MiniMax Video-01-Live — fastest with audio (~30-60s)
+            modelEndpoint = "fal-ai/minimax-video/video-01-live";
             if (hasReference)
             {
                 requestBody = new
@@ -242,7 +242,7 @@ public class ImageGenerationService
                     prompt_optimizer = true
                 };
             }
-            _logger.LogInformation("Using MiniMax Video-01 (audio enabled), hasRef={HasRef}", hasReference);
+            _logger.LogInformation("Using MiniMax Video-01-Live (fast+audio ~1min), hasRef={HasRef}", hasReference);
         }
         else
         {
