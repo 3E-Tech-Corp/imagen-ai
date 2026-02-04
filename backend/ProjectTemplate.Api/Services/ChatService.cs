@@ -12,6 +12,7 @@ public class ChatService
     private readonly ILogger<ChatService> _logger;
     private readonly ImageGenerationService _imageService;
     private readonly VideoJobService _videoJobService;
+    private readonly ProjectService _projectService;
     private readonly HttpClient _httpClient;
 
     private const string SystemPrompt = @"Eres un asistente creativo de IA que ayuda a crear imágenes y videos increíbles. 
@@ -48,12 +49,14 @@ Siempre incluye 3 sugerencias relevantes para continuar la conversación creativ
         IConfiguration config,
         ILogger<ChatService> logger,
         ImageGenerationService imageService,
-        VideoJobService videoJobService)
+        VideoJobService videoJobService,
+        ProjectService projectService)
     {
         _config = config;
         _logger = logger;
         _imageService = imageService;
         _videoJobService = videoJobService;
+        _projectService = projectService;
         _httpClient = new HttpClient { Timeout = TimeSpan.FromMinutes(2) };
     }
 
@@ -125,6 +128,9 @@ Siempre incluye 3 sugerencias relevantes para continuar la conversación creativ
         var media = await _imageService.GenerateImageAsync(genRequest);
         response.MediaUrl = media.Url;
         response.MediaType = "image";
+
+        // Auto-save to "Mis Creaciones" project
+        _ = _projectService.AutoSaveAsync("image", decision.Prompt ?? request.Message, media.Url, decision.Style ?? "photorealistic");
     }
 
     private Task HandleGenerateVideo(AiDecision decision, ChatMessageRequest request, ChatMessageResponse response)
@@ -150,13 +156,19 @@ Siempre incluye 3 sugerencias relevantes para continuar la conversación creativ
         // Create async job (videos take too long for synchronous response)
         var job = _videoJobService.CreateJob(genRequest.Prompt, genRequest.Style);
 
-        // Fire-and-forget
+        // Fire-and-forget with auto-save
+        var projectService = _projectService;
+        var prompt = decision.Prompt ?? request.Message;
+        var style = decision.Style ?? "cinematic";
         _ = Task.Run(async () =>
         {
             try
             {
                 var media = await _imageService.GenerateVideoAsync(genRequest);
                 _videoJobService.CompleteJob(job.Id, media.Url);
+                
+                // Auto-save video to "Mis Creaciones"
+                await projectService.AutoSaveAsync("video", prompt, media.Url, style);
             }
             catch (Exception ex)
             {
@@ -196,6 +208,9 @@ Siempre incluye 3 sugerencias relevantes para continuar la conversación creativ
         var media = await _imageService.GenerateImageAsync(genRequest);
         response.MediaUrl = media.Url;
         response.MediaType = "image";
+
+        // Auto-save edited image to "Mis Creaciones"
+        _ = _projectService.AutoSaveAsync("image", decision.Prompt ?? request.Message, media.Url, decision.Style ?? "photorealistic");
     }
 
     private async Task<AiDecision> GetAiDecisionAsync(ChatMessageRequest request)

@@ -108,8 +108,9 @@ if (!(Test-Path $backendPath)) {
     New-Item -ItemType Directory -Path $backendPath -Force | Out-Null
 }
 
-# Preserve production config files
+# Preserve production config files and data directories
 $preserveFiles = @("appsettings.Production.json")
+$preserveDirs = @("wwwroot\data", "wwwroot\references")
 $tempDir = Join-Path $env:TEMP "deploy-preserve-$(Get-Random)"
 New-Item -ItemType Directory -Path $tempDir -Force | Out-Null
 
@@ -118,6 +119,17 @@ foreach ($file in $preserveFiles) {
     if (Test-Path $src) {
         Copy-Item $src (Join-Path $tempDir $file)
         Write-Host "   Preserved: $file" -ForegroundColor Gray
+    }
+}
+
+# Preserve data directories (projects, references, generated content)
+foreach ($dir in $preserveDirs) {
+    $src = Join-Path $backendPath $dir
+    if (Test-Path $src) {
+        $dest = Join-Path $tempDir $dir
+        New-Item -ItemType Directory -Path $dest -Force | Out-Null
+        Copy-Item -Path "$src\*" -Destination $dest -Recurse -Force
+        Write-Host "   Preserved directory: $dir" -ForegroundColor Gray
     }
 }
 
@@ -149,6 +161,17 @@ foreach ($file in $preserveFiles) {
     if (Test-Path $src) {
         Copy-Item $src (Join-Path $backendPath $file) -Force
         Write-Host "   Restored: $file" -ForegroundColor Gray
+    }
+}
+
+# Restore data directories
+foreach ($dir in $preserveDirs) {
+    $src = Join-Path $tempDir $dir
+    if (Test-Path $src) {
+        $dest = Join-Path $backendPath $dir
+        New-Item -ItemType Directory -Path $dest -Force | Out-Null
+        Copy-Item -Path "$src\*" -Destination $dest -Recurse -Force
+        Write-Host "   Restored directory: $dir" -ForegroundColor Gray
     }
 }
 

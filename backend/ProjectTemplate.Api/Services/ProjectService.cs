@@ -230,6 +230,67 @@ public class ProjectService
         finally { _lock.Release(); }
     }
 
+    /// <summary>
+    /// Auto-save an item to the default "Mis Creaciones" project. Creates it if it doesn't exist.
+    /// </summary>
+    public async Task AutoSaveAsync(string type, string prompt, string url, string style, string? thumbnailUrl = null)
+    {
+        await _lock.WaitAsync();
+        try
+        {
+            const string defaultProjectId = "mis-creaciones";
+            var project = await ReadProjectAsync(defaultProjectId);
+            
+            if (project == null)
+            {
+                project = new ProjectDto
+                {
+                    Id = defaultProjectId,
+                    Name = "Mis Creaciones",
+                    Description = "Todas tus imágenes y videos se guardan aquí automáticamente",
+                    Category = "auto",
+                    CreatedAt = DateTime.UtcNow.ToString("o"),
+                    UpdatedAt = DateTime.UtcNow.ToString("o"),
+                    Items = new List<ProjectItemDto>()
+                };
+            }
+
+            project.Items ??= new List<ProjectItemDto>();
+
+            // Don't duplicate if same URL already saved
+            if (project.Items.Any(i => i.Url == url))
+            {
+                return;
+            }
+
+            var item = new ProjectItemDto
+            {
+                Id = Guid.NewGuid().ToString(),
+                ProjectId = defaultProjectId,
+                Type = type,
+                Prompt = prompt,
+                Url = url,
+                ThumbnailUrl = thumbnailUrl,
+                Style = style ?? "auto",
+                CreatedAt = DateTime.UtcNow.ToString("o"),
+                IterationNumber = 1
+            };
+
+            project.Items.Insert(0, item);
+            project.UpdatedAt = DateTime.UtcNow.ToString("o");
+            project.ItemCount = project.Items.Count;
+            project.CoverUrl = project.Items.FirstOrDefault(i => i.Type != "reference")?.Url ?? url;
+
+            await WriteProjectAsync(project);
+            _logger.LogInformation("Auto-saved {Type} to Mis Creaciones: {Url}", type, url);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to auto-save to Mis Creaciones");
+        }
+        finally { _lock.Release(); }
+    }
+
     public async Task<string> SaveReferenceImageAsync(string projectId, Stream imageStream, string fileName, string? notes)
     {
         var refDir = Path.Combine(Directory.GetParent(_dataDir)!.Parent!.FullName, "references", projectId);

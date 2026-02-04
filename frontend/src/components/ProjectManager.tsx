@@ -349,11 +349,20 @@ export default function ProjectManager() {
           </div>
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            {projects.map((project) => (
+            {/* Sort: "Mis Creaciones" always first */}
+            {[...projects].sort((a, b) => {
+              if (a.id === 'mis-creaciones') return -1;
+              if (b.id === 'mis-creaciones') return 1;
+              return 0;
+            }).map((project) => {
+              const isAutoSave = project.id === 'mis-creaciones';
+              return (
               <button
                 key={project.id}
                 onClick={() => loadProject(project.id)}
-                className="bg-gray-800/50 rounded-2xl border border-gray-700/50 overflow-hidden hover:border-violet-500/50 transition-all text-left group"
+                className={`bg-gray-800/50 rounded-2xl border overflow-hidden hover:border-violet-500/50 transition-all text-left group ${
+                  isAutoSave ? 'border-violet-500/40 ring-1 ring-violet-500/20' : 'border-gray-700/50'
+                }`}
               >
                 {/* Cover */}
                 <div className="aspect-video bg-gradient-to-br from-gray-800 to-gray-900 relative overflow-hidden">
@@ -362,13 +371,18 @@ export default function ProjectManager() {
                   ) : (
                     <div className="w-full h-full flex items-center justify-center">
                       <span className="text-4xl opacity-30">
-                        {project.category === 'images' ? '🖼️' : project.category === 'videos' ? '🎬' : '📁'}
+                        {isAutoSave ? '✨' : project.category === 'images' ? '🖼️' : project.category === 'videos' ? '🎬' : '📁'}
                       </span>
                     </div>
                   )}
                   <div className="absolute bottom-2 right-2 bg-black/60 px-2 py-1 rounded-lg">
                     <span className="text-white text-xs">{project.itemCount} items</span>
                   </div>
+                  {isAutoSave && (
+                    <div className="absolute top-2 left-2 bg-violet-600/90 px-2 py-0.5 rounded-lg">
+                      <span className="text-white text-xs font-medium">✨ Auto-guardado</span>
+                    </div>
+                  )}
                 </div>
                 {/* Info */}
                 <div className="p-4">
@@ -381,7 +395,8 @@ export default function ProjectManager() {
                   </p>
                 </div>
               </button>
-            ))}
+              );
+            })}
           </div>
         )}
       </div>
