@@ -83,20 +83,18 @@ public class ImageGenerationService
         }
         else
         {
-            // Standard text-to-image
-            endpoint = "https://fal.run/fal-ai/flux/dev";
+            // Use Flux Pro 1.1 for highest quality text-to-image
+            endpoint = "https://fal.run/fal-ai/flux-pro/v1.1";
             var t2iBody = new
             {
                 prompt = fullPrompt,
-                negative_prompt = negativePrompt,
                 image_size = imageSize,
-                num_inference_steps = 28,
-                guidance_scale = 3.5,
                 num_images = 1,
-                enable_safety_checker = true
+                safety_tolerance = "2",
+                output_format = "jpeg"
             };
             requestJson = JsonSerializer.Serialize(t2iBody);
-            _logger.LogInformation("Image prompt: {Prompt}", fullPrompt);
+            _logger.LogInformation("Image prompt (Flux Pro): {Prompt}", fullPrompt);
         }
 
         var response = await SendFalRequest(
@@ -145,8 +143,8 @@ public class ImageGenerationService
 
         if (useFastModel)
         {
-            // MiniMax Hailuo Live — fast, ~30-60 seconds
-            modelEndpoint = "fal-ai/minimax-video/video-01-live";
+            // MiniMax Hailuo Video-01 — with audio support, ~1-2 minutes
+            modelEndpoint = "fal-ai/minimax-video/video-01";
             if (hasReference)
             {
                 requestBody = new
@@ -155,7 +153,7 @@ public class ImageGenerationService
                     prompt_optimizer = true,
                     first_frame_image = referenceUrl
                 };
-                _logger.LogInformation("Using FAST model: MiniMax Hailuo Live (with reference image)");
+                _logger.LogInformation("Using model: MiniMax Video-01 with audio (with reference image)");
             }
             else
             {
@@ -164,7 +162,7 @@ public class ImageGenerationService
                     prompt = fullPrompt,
                     prompt_optimizer = true
                 };
-                _logger.LogInformation("Using FAST model: MiniMax Hailuo Live");
+                _logger.LogInformation("Using model: MiniMax Video-01 with audio");
             }
         }
         else

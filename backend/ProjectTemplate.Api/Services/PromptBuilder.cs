@@ -32,6 +32,12 @@ public static class PromptBuilder
         AddEmotion(parts, emotion);
         AddQuality(parts, quality);
 
+        // Always add quality enhancers for realism
+        if (style == "photorealistic" || style == "realistic" || style == "cinematic")
+        {
+            parts.Add("hyperrealistic, professional photography, 8K resolution, sharp focus, natural proportions, detailed textures");
+        }
+
         // System rules appended
         parts.Add(SYSTEM_RULES);
 

@@ -50,6 +50,9 @@ public class AiDecision
     [JsonPropertyName("videoSpeed")]
     public string? VideoSpeed { get; set; }
 
+    [JsonPropertyName("language")]
+    public string? Language { get; set; }
+
     [JsonPropertyName("suggestions")]
     public List<string>? Suggestions { get; set; }
 }
