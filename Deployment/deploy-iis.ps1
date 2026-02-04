@@ -110,7 +110,7 @@ if (!(Test-Path $backendPath)) {
 
 # Preserve production config files and data directories
 $preserveFiles = @("appsettings.Production.json")
-$preserveDirs = @("wwwroot\data", "wwwroot\references", "wwwroot\data\transform-history")
+$preserveDirs = @("wwwroot\data", "wwwroot\references", "wwwroot\data\transform-history", "wwwroot\data\live", "App_Data\live")
 $tempDir = Join-Path $env:TEMP "deploy-preserve-$(Get-Random)"
 New-Item -ItemType Directory -Path $tempDir -Force | Out-Null
 

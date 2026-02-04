@@ -14,9 +14,30 @@ public class LiveService
     public LiveService(ILogger<LiveService> logger, IWebHostEnvironment env)
     {
         _logger = logger;
-        _dataDir = Path.Combine(env.ContentRootPath, "App_Data", "live");
-        Directory.CreateDirectory(_dataDir);
-        LoadData();
+        // Use wwwroot/data/live — this path is preserved during deployments and has write permissions on IIS
+        _dataDir = Path.Combine(env.ContentRootPath, "wwwroot", "data", "live");
+        try
+        {
+            Directory.CreateDirectory(_dataDir);
+            LoadData();
+            _logger.LogInformation("LiveService initialized. Data dir: {Dir}", _dataDir);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to initialize LiveService data dir: {Dir}. Trying fallback...", _dataDir);
+            try
+            {
+                // Fallback to temp directory
+                _dataDir = Path.Combine(Path.GetTempPath(), "imagen-ai-live");
+                Directory.CreateDirectory(_dataDir);
+                LoadData();
+                _logger.LogInformation("LiveService using fallback dir: {Dir}", _dataDir);
+            }
+            catch (Exception ex2)
+            {
+                _logger.LogError(ex2, "LiveService fallback also failed. Service will work without persistence.");
+            }
+        }
     }
 
     // ═══════════════════════════════════════════
