@@ -12,6 +12,7 @@ export interface Translations {
   voces: string;
   recetas: string;
   proyectos: string;
+  live: string;
   // Chat
   bienvenidaImg: string;
   bienvenidaVid: string;
@@ -54,6 +55,7 @@ const es: Translations = {
   voces: 'Voces',
   recetas: 'Recetas',
   proyectos: 'Proyectos',
+  live: 'Live',
   bienvenidaImg: '👋 ¡Bienvenida a tu estudio creativo!\n\nCreo **cualquier cosa** que me pidas — personas, animales, objetos, paisajes — en el estilo que quieras.\n\n🎨 **Estilos disponibles:**\n• 📸 Realista (fotos que parecen reales)\n• 🎌 Anime / Manga\n• 🎬 Animación / Cartoon\n• 🧊 3D / Pixar / Disney\n• 🖌️ Pintura / Acuarela / Dibujo\n\n💡 **Escríbeme como quieras** — simple, detallado, como te salga. Yo te entiendo.',
   bienvenidaVid: '👋 ¡Bienvenida al estudio de video!\n\nCreo videos **con sonido** en cualquier estilo e idioma.\n\n🎬 **Lo que puedo hacer:**\n• Videos realistas, anime, animación o 3D\n• Con sonido, música y voces\n• En español, inglés, francés y 10+ idiomas\n• Animar cualquier imagen que generes\n\n⚡ Videos listos en **menos de 1 minuto**',
   describeLaImagen: 'Describe la imagen que quieres...',
@@ -92,6 +94,7 @@ const en: Translations = {
   voces: 'Voices',
   recetas: 'Recipes',
   proyectos: 'Projects',
+  live: 'Live',
   bienvenidaImg: '👋 Welcome to your creative studio!\n\nI create **anything** you ask — people, animals, objects, landscapes — in any style.\n\n🎨 **Available styles:**\n• 📸 Realistic (photos that look real)\n• 🎌 Anime / Manga\n• 🎬 Animation / Cartoon\n• 🧊 3D / Pixar / Disney\n• 🖌️ Painting / Watercolor / Drawing\n\n💡 **Write however you want** — simple, detailed, however it comes out. I understand you.',
   bienvenidaVid: '👋 Welcome to the video studio!\n\nI create videos **with sound** in any style and language.\n\n🎬 **What I can do:**\n• Realistic, anime, animation or 3D videos\n• With sound, music and voices\n• In English, Spanish, French and 10+ languages\n• Animate any image you generate\n\n⚡ Videos ready in **under 1 minute**',
   describeLaImagen: 'Describe the image you want...',
@@ -130,6 +133,7 @@ const fr: Translations = {
   voces: 'Voix',
   recetas: 'Recettes',
   proyectos: 'Projets',
+  live: 'Live',
   bienvenidaImg: '👋 Bienvenue dans votre studio créatif!\n\nJe crée **tout** ce que vous demandez — personnes, animaux, objets, paysages — dans le style que vous voulez.\n\n💡 **Écrivez comme vous voulez** — je vous comprends.',
   bienvenidaVid: '👋 Bienvenue au studio vidéo!\n\nJe crée des vidéos **avec son** dans tout style et langue.\n\n⚡ Vidéos prêtes en **moins d\'1 minute**',
   describeLaImagen: 'Décrivez l\'image que vous voulez...',
@@ -168,6 +172,7 @@ const pt: Translations = {
   voces: 'Vozes',
   recetas: 'Receitas',
   proyectos: 'Projetos',
+  live: 'Live',
   bienvenidaImg: '👋 Bem-vinda ao seu estúdio criativo!\n\nCrio **qualquer coisa** que você pedir — pessoas, animais, objetos, paisagens — no estilo que quiser.\n\n💡 **Escreva como quiser** — eu entendo.',
   bienvenidaVid: '👋 Bem-vinda ao estúdio de vídeo!\n\nCrio vídeos **com som** em qualquer estilo e idioma.\n\n⚡ Vídeos prontos em **menos de 1 minuto**',
   describeLaImagen: 'Descreva a imagem que você quer...',
@@ -206,6 +211,7 @@ const de: Translations = {
   voces: 'Stimmen',
   recetas: 'Rezepte',
   proyectos: 'Projekte',
+  live: 'Live',
   bienvenidaImg: '👋 Willkommen in deinem Kreativstudio!\n\nIch erstelle **alles** was du möchtest — Menschen, Tiere, Objekte, Landschaften — in jedem Stil.\n\n💡 **Schreib wie du willst** — ich verstehe dich.',
   bienvenidaVid: '👋 Willkommen im Videostudio!\n\nIch erstelle Videos **mit Sound** in jedem Stil und Sprache.\n\n⚡ Videos fertig in **unter 1 Minute**',
   describeLaImagen: 'Beschreibe das gewünschte Bild...',
@@ -244,6 +250,7 @@ const it: Translations = {
   voces: 'Voci',
   recetas: 'Ricette',
   proyectos: 'Progetti',
+  live: 'Live',
   bienvenidaImg: '👋 Benvenuta nel tuo studio creativo!\n\nCreo **qualsiasi cosa** tu chieda — persone, animali, oggetti, paesaggi — in qualsiasi stile.\n\n💡 **Scrivi come vuoi** — ti capisco.',
   bienvenidaVid: '👋 Benvenuta nello studio video!\n\nCreo video **con audio** in qualsiasi stile e lingua.\n\n⚡ Video pronti in **meno di 1 minuto**',
   describeLaImagen: 'Descrivi l\'immagine che vuoi...',
@@ -273,9 +280,9 @@ const it: Translations = {
 };
 
 // Simplified entries for remaining languages (using English as base with localized key phrases)
-const zh: Translations = { ...en, studioCreativo: '创意工作室', imagenes: '图片', videos: '视频', herramientas: '工具', glowUp: '变美', miEspejo: '我的镜子', voces: '配音', recetas: '食谱', proyectos: '项目', personalizar: '个性化', colorDeLaApp: '🎨 应用颜色', tipografia: '✍️ 字体', idiomaDeLaApp: '🌍 应用语言', cerrar: '关闭', tu: '你', creando: '创建中...', procesando: '处理中...', descargar: '📥 下载', modificar: '✏️ 编辑', hacerVideo: '🎬 制作视频', describeLaImagen: '描述你想要的图片...', describeElVideo: '描述你想要的视频...' };
-const ja: Translations = { ...en, studioCreativo: 'クリエイティブスタジオ', imagenes: '画像', videos: '動画', herramientas: 'ツール', glowUp: 'グローアップ', miEspejo: 'マイミラー', voces: 'ボイス', recetas: 'レシピ', proyectos: 'プロジェクト', personalizar: 'カスタマイズ', colorDeLaApp: '🎨 アプリカラー', tipografia: '✍️ フォント', idiomaDeLaApp: '🌍 アプリ言語', cerrar: '閉じる', tu: 'あなた', creando: '作成中...', procesando: '処理中...', descargar: '📥 ダウンロード', describeLaImagen: '欲しい画像を説明してください...', describeElVideo: '欲しい動画を説明してください...' };
-const ko: Translations = { ...en, studioCreativo: '크리에이티브 스튜디오', imagenes: '이미지', videos: '비디오', herramientas: '도구', glowUp: '글로우업', miEspejo: '내 거울', voces: '음성', recetas: '레시피', proyectos: '프로젝트', personalizar: '커스터마이즈', colorDeLaApp: '🎨 앱 색상', tipografia: '✍️ 글꼴', idiomaDeLaApp: '🌍 앱 언어', cerrar: '닫기', tu: '나', creando: '생성 중...', procesando: '처리 중...' };
+const zh: Translations = { ...en, studioCreativo: '创意工作室', imagenes: '图片', videos: '视频', herramientas: '工具', glowUp: '变美', miEspejo: '我的镜子', voces: '配音', recetas: '食谱', proyectos: '项目', live: 'Live', personalizar: '个性化', colorDeLaApp: '🎨 应用颜色', tipografia: '✍️ 字体', idiomaDeLaApp: '🌍 应用语言', cerrar: '关闭', tu: '你', creando: '创建中...', procesando: '处理中...', descargar: '📥 下载', modificar: '✏️ 编辑', hacerVideo: '🎬 制作视频', describeLaImagen: '描述你想要的图片...', describeElVideo: '描述你想要的视频...' };
+const ja: Translations = { ...en, studioCreativo: 'クリエイティブスタジオ', imagenes: '画像', videos: '動画', herramientas: 'ツール', glowUp: 'グローアップ', miEspejo: 'マイミラー', voces: 'ボイス', recetas: 'レシピ', proyectos: 'プロジェクト', live: 'Live', personalizar: 'カスタマイズ', colorDeLaApp: '🎨 アプリカラー', tipografia: '✍️ フォント', idiomaDeLaApp: '🌍 アプリ言語', cerrar: '閉じる', tu: 'あなた', creando: '作成中...', procesando: '処理中...', descargar: '📥 ダウンロード', describeLaImagen: '欲しい画像を説明してください...', describeElVideo: '欲しい動画を説明してください...' };
+const ko: Translations = { ...en, studioCreativo: '크리에이티브 스튜디오', imagenes: '이미지', videos: '비디오', herramientas: '도구', glowUp: '글로우업', miEspejo: '내 거울', voces: '음성', recetas: '레시피', proyectos: '프로젝트', live: 'Live', personalizar: '커스터마이즈', colorDeLaApp: '🎨 앱 색상', tipografia: '✍️ 글꼴', idiomaDeLaApp: '🌍 앱 언어', cerrar: '닫기', tu: '나', creando: '생성 중...', procesando: '처리 중...' };
 const ar: Translations = { ...en, studioCreativo: 'استوديو إبداعي', imagenes: 'صور', videos: 'فيديو', herramientas: 'أدوات', personalizar: 'تخصيص', cerrar: 'إغلاق', tu: 'أنت' };
 const ru: Translations = { ...en, studioCreativo: 'Креативная Студия', imagenes: 'Изображения', videos: 'Видео', herramientas: 'Инструменты', personalizar: 'Настроить', cerrar: 'Закрыть', tu: 'Вы', creando: 'Создаю...', procesando: 'Обработка...' };
 const hi: Translations = { ...en, studioCreativo: 'क्रिएटिव स्टूडियो', imagenes: 'चित्र', videos: 'वीडियो', personalizar: 'कस्टमाइज़', cerrar: 'बंद करें', tu: 'आप' };

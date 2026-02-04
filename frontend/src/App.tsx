@@ -8,6 +8,7 @@ import AiTools from './components/AiTools';
 import TransformSection from './components/TransformSection';
 import CreativeChat from './components/CreativeChat';
 import MirrorChat from './components/MirrorChat';
+import LiveSection from './components/LiveSection';
 import { GenerationType } from './types';
 import { AppLang, getTranslations } from './i18n/translations';
 
@@ -59,8 +60,10 @@ export default function App() {
         ) : activeTab === 'mirror' ? (
           <MirrorChat />
         ) : (
-          <section className={activeTab === 'projects' || activeTab === 'tools' || activeTab === 'transform' ? 'max-w-5xl mx-auto' : 'max-w-3xl mx-auto'}>
-            {activeTab === 'projects' ? (
+          <section className={activeTab === 'projects' || activeTab === 'tools' || activeTab === 'transform' || activeTab === 'live' ? 'max-w-5xl mx-auto' : 'max-w-3xl mx-auto'}>
+            {activeTab === 'live' ? (
+              <LiveSection />
+            ) : activeTab === 'projects' ? (
               <ProjectManager />
             ) : activeTab === 'tools' ? (
               <AiTools />

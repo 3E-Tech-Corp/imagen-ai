@@ -95,6 +95,7 @@ builder.Services.AddSingleton<AiToolsService>();
 builder.Services.AddSingleton<VideoJobService>();
 builder.Services.AddSingleton<ChatService>();
 builder.Services.AddSingleton<TransformService>();
+builder.Services.AddSingleton<LiveService>();
 
 var app = builder.Build();
 

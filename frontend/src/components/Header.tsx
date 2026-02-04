@@ -19,6 +19,7 @@ export default function Header({ activeTab, onTabChange, lang, onLangChange, t }
     { id: 'mirror', label: t.miEspejo, emoji: '🪞' },
     { id: 'voice', label: t.voces, emoji: '🎙️' },
     { id: 'recipe', label: t.recetas, emoji: '🍳' },
+    { id: 'live', label: t.live, emoji: '📡' },
     { id: 'projects', label: t.proyectos, emoji: '📂' },
   ];
 

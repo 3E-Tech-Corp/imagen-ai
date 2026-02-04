@@ -1,4 +1,4 @@
-export type GenerationType = 'image' | 'video' | 'voice' | 'tools' | 'transform' | 'mirror' | 'recipe' | 'projects';
+export type GenerationType = 'image' | 'video' | 'voice' | 'tools' | 'transform' | 'mirror' | 'recipe' | 'projects' | 'live';
 
 export type VoiceGender = 'female' | 'male';
 
